@@ -1,0 +1,40 @@
+# The canonical gRPC hello-world, as an mcpp project.
+#
+# Upstream ships this as two binaries you start by hand; here it is one program
+# that stands the server up on a loopback port and calls it, so `mcpp run`
+# answers "does gRPC actually work" with an exit code.
+#
+# CODE GENERATION. gen/ holds protoc output, CHECKED IN on purpose. gRPC's
+# codegen needs two host tools — protoc and grpc_cpp_plugin — and mcpp has no
+# way to hand a dependency's built binaries to a consumer (`mcpp::dep_dir()`
+# gives a package's source dir, and there is no mechanism that exposes a
+# dependency's `kind = "bin"` targets). Distributing those tools is tracked
+# separately; until then the generated files are committed so this example
+# builds with nothing but mcpp. Regenerate with:
+#
+#   protoc -I proto \
+#          --cpp_out=gen --grpc_out=gen \
+#          --plugin=protoc-gen-grpc=$(which grpc_cpp_plugin) \
+#          proto/helloworld.proto
+#
+# protoc must be 35.1 to match compat.protobuf (upstream publishes prebuilt
+# protoc for every platform); grpc_cpp_plugin must come from gRPC 1.83.0.
+[package]
+name        = "helloworld"
+version     = "0.1.0"
+standard    = "c++23"
+description = "gRPC hello-world: real server + real client + real RPC, in one process"
+license     = "Apache-2.0"
+
+[build]
+sources = ["src/main.cpp", "gen/helloworld.pb.cc", "gen/helloworld.grpc.pb.cc"]
+# gen/ so the generated .grpc.pb.cc can find its own "helloworld.pb.h".
+include_dirs = ["gen"]
+
+[targets.helloworld]
+kind = "bin"
+main = "src/main.cpp"
+
+[dependencies]
+grpc = { path = "../.." }
+

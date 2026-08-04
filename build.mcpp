@@ -1,0 +1,60 @@
+// build.mcpp — grpc-m build glue.
+//
+// Deliberately small. The source list is declarative in mcpp.toml (including
+// the `ares` feature's own sources), so this program covers only the two
+// things the manifest grammar genuinely cannot express:
+//
+//   1. PRIVATE include dirs. [build].include_dirs propagates to consumers, and
+//      a consumer needs exactly one directory — third_party/grpc-1.83.0/include
+//      for <grpcpp/grpcpp.h>. gRPC's own internal roots must NOT land on a
+//      consumer's -I: the vendor root in particular contains src/, include/ and
+//      third_party/, and putting it on a consumer's include path invites
+//      collisions with their own headers. mcpp::include_dir() is private by
+//      design (Cargo discipline, docs/07-build-mcpp.md), which is exactly the
+//      scope needed.
+//
+//   2. The `ares` feature's OFF state. mcpp features are ADDITIVE — a feature
+//      can add, never remove — so "no c-ares" cannot itself be a feature, and
+//      writing -DGRPC_ARES=0 into [build].cxxflags could not be retracted when
+//      the feature is on (both would reach the command line and the macro would
+//      be redefined). The manifest therefore says nothing about GRPC_ARES:
+//      include/grpc/support/port_platform.h sets it to 1 under #ifndef, so
+//      silence IS the on-state, and this program defines 0 only when the
+//      feature is absent. The 7 resolver TUs are handled the other way round —
+//      declaratively, by [features.ares].sources.
+//
+// Style follows opencv-m: textual std includes first, then `import mcpp;`
+// (the mcpp module is bundled in the mcpp binary, so it always matches the
+// directive protocol). Diagnostics go to stdout as non-directive lines —
+// never stderr, which can interleave into the buffered directive stream.
+#include <cstdio>
+#include <string>
+
+import mcpp;
+
+int main() {
+    const std::string vendor = "third_party/grpc-1.83.0";
+
+    // upb-gen / upbdefs-gen hold gRPC's CHECKED-IN generated upb code, which is
+    // why this build needs no protoc. address_sorting and xxhash are the two
+    // pieces gRPC really does vendor with content (unlike its empty submodule
+    // placeholders for abseil/protobuf/re2/boringssl/zlib, which is what makes
+    // a self-contained gRPC tarball impossible and this repo necessary).
+    mcpp::include_dir(vendor.c_str());
+    mcpp::include_dir((vendor + "/src/core/ext/upb-gen").c_str());
+    mcpp::include_dir((vendor + "/src/core/ext/upbdefs-gen").c_str());
+    mcpp::include_dir((vendor + "/third_party/address_sorting/include").c_str());
+    mcpp::include_dir((vendor + "/third_party/xxhash").c_str());
+
+    if (mcpp::has_feature("ares")) {
+        std::printf("grpc-m: c-ares resolver ON (default)\n");
+    } else {
+        // Upstream's own spelling for this configuration (bazel
+        // grpc_no_ares=true -> GRPC_ARES=0). gRPC falls back to its native
+        // DNS resolver.
+        mcpp::define("GRPC_ARES=0");
+        std::printf("grpc-m: c-ares resolver OFF -> GRPC_ARES=0, native DNS resolver\n");
+    }
+
+    return 0;
+}

@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  # Keep in step with the mcpp-index CI pin: this package's dependencies are
+  # index packages, and they are validated against that same mcpp.
+  MCPP_VERSION: "2026.8.3.3"
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: "linux x86_64",  os: ubuntu-latest, suffix: linux-x86_64,  ext: tar.gz, mcpp: bin/mcpp }
+          - { name: "macos arm64",   os: macos-latest,  suffix: macosx-arm64,  ext: tar.gz, mcpp: bin/mcpp }
+          - { name: "windows x86_64", os: windows-latest, suffix: windows-x86_64, ext: zip, mcpp: bin/mcpp.exe }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download pinned mcpp
+        shell: bash
+        run: |
+          base="https://github.com/mcpp-community/mcpp/releases/download/v${MCPP_VERSION}"
+          archive="mcpp-${MCPP_VERSION}-${{ matrix.suffix }}.${{ matrix.ext }}"
+          curl -L -fsS -o "$archive" "$base/$archive"
+          if [ "${{ matrix.ext }}" = "zip" ]; then unzip -q "$archive"; else tar -xzf "$archive"; fi
+          root="$PWD/mcpp-${MCPP_VERSION}-${{ matrix.suffix }}"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            echo "MCPP=$(cygpath -m "$root/${{ matrix.mcpp }}")" >> "$GITHUB_ENV"
+            echo "MCPP_VENDORED_XLINGS=$(cygpath -m "$root/registry/bin/xlings")" >> "$GITHUB_ENV"
+          else
+            echo "MCPP=$root/${{ matrix.mcpp }}" >> "$GITHUB_ENV"
+            echo "MCPP_VENDORED_XLINGS=$root/registry/bin/xlings" >> "$GITHUB_ENV"
+          fi
+
+      # The dependencies are published index packages, and the snapshot the
+      # mcpp release vendored is older than whatever landed since.
+      - name: Refresh the published package index
+        shell: bash
+        env: { MCPP_INDEX_MIRROR: GLOBAL }
+        run: "$MCPP" index update
+
+      # mcpp#344: object-path disambiguation keys on basename collisions across
+      # the whole build dir, while the package cache key covers only the
+      # dependency — one entry can hold two layouts. This graph has several
+      # colliding basenames (abseil/protobuf `parser.cc`, abseil/gRPC
+      # `status.cc`, `time.cc`), so the package cache is bypassed exactly as
+      # mcpp-index's own CI does. Drop this once the pin reaches 2026.8.3.4.
+      - name: Build the library and run the module test
+        shell: bash
+        env:
+          MCPP_INDEX_MIRROR: GLOBAL
+          MCPP_BUILD_CACHE: local
+        run: |
+          "$MCPP" --version
+          "$MCPP" test
+
+      - name: helloworld example — a real RPC over loopback
+        shell: bash
+        working-directory: examples/helloworld
+        env:
+          MCPP_INDEX_MIRROR: GLOBAL
+          MCPP_BUILD_CACHE: local
+        run: "$MCPP" run
+
+  manifest-matches-upstream:
+    name: source list == upstream CMakeLists
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch the pinned gRPC tag
+        run: |
+          git clone -q --depth 1 -b v1.83.0 https://github.com/grpc/grpc.git /tmp/grpc
+      # Proves mcpp.toml's source arrays are upstream's own list, not a
+      # hand-curated one that has drifted.
+      - name: tools/gen_sources.py --check
+        run: python3 tools/gen_sources.py --grpc /tmp/grpc --check
