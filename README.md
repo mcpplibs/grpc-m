@@ -89,6 +89,15 @@ protoc -I proto --cpp_out=gen --grpc_out=gen \
 `protoc` must be **35.1** to match `compat.protobuf` (upstream publishes prebuilt protoc
 for every platform), and `grpc_cpp_plugin` must come from **gRPC 1.83.0**.
 
+## Platform support
+
+**linux and macOS.** Not a gRPC limitation: `compat.openssl` has no windows entry yet
+("windows deferred — requires prebuilt MSVC libs"), so on windows dependency resolution
+fails with `E_NOT_FOUND: package 'compat:openssl@3.5.1' not found` before anything is
+compiled. gRPC's secure build cannot drop TLS, so this package's coverage is exactly
+that dependency's. The windows compile/link flags are already in `mcpp.toml`, ready for
+the day that entry lands.
+
 ## Features
 
 | Feature | Default | Effect |

@@ -6,6 +6,16 @@ description = "gRPC 1.83.0 for mcpp — upstream C++ source vendored and built b
 license     = "Apache-2.0"
 repo        = "https://github.com/mcpplibs/grpc-m"
 
+# linux + macOS only, and the reason is a dependency rather than gRPC itself:
+# compat.openssl has no windows xpm entry ("windows deferred — requires prebuilt
+# MSVC libs"), so resolution fails there with
+#   E_NOT_FOUND: package 'compat:openssl@3.5.1' not found
+# before a single TU is compiled. gRPC's secure build cannot drop TLS, so this
+# package's platform coverage is exactly compat.openssl's. The
+# [target.'cfg(windows)'] flags below are kept and correct — they are what this
+# package will need the day that entry lands.
+platforms   = ["linux", "macos"]
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Single-repo build, the shape opencv-m established.
 #

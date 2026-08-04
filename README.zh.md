@@ -86,6 +86,14 @@ protoc -I proto --cpp_out=gen --grpc_out=gen \
 `protoc` 必须是 **35.1**(与 `compat.protobuf` 对齐,上游提供全平台预编译包),
 `grpc_cpp_plugin` 必须来自 **gRPC 1.83.0**。
 
+## 平台支持
+
+**linux 与 macOS。** 这不是 gRPC 的限制:`compat.openssl` 目前没有 windows 条目
+(其描述符写着 "windows deferred —— 需要预编译的 MSVC 库"),因此在 windows 上依赖解析
+会直接失败 —— `E_NOT_FOUND: package 'compat:openssl@3.5.1' not found`,还没开始编译。
+gRPC 的 secure 构建无法去掉 TLS,所以本包的平台覆盖面就等于该依赖的覆盖面。
+windows 所需的编译/链接选项已经写在 `mcpp.toml` 里,等那个条目落地即可启用。
+
 ## Features
 
 | Feature | 默认 | 作用 |

@@ -21,7 +21,12 @@ jobs:
         include:
           - { name: "linux x86_64",  os: ubuntu-latest, suffix: linux-x86_64,  ext: tar.gz, mcpp: bin/mcpp }
           - { name: "macos arm64",   os: macos-latest,  suffix: macosx-arm64,  ext: tar.gz, mcpp: bin/mcpp }
-          - { name: "windows x86_64", os: windows-latest, suffix: windows-x86_64, ext: zip, mcpp: bin/mcpp.exe }
+          # No windows leg: compat.openssl has no windows xpm entry yet, so
+          # dependency resolution fails there before anything is compiled
+          # ("E_NOT_FOUND: package 'compat:openssl@3.5.1' not found"). gRPC's
+          # secure build cannot drop TLS, so this package is linux + macOS
+          # until that package gains windows support. Re-add this line then —
+          # the windows flags in mcpp.toml are already in place.
     steps:
       - uses: actions/checkout@v4
 
