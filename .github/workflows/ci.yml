@@ -45,8 +45,10 @@ jobs:
       # mcpp release vendored is older than whatever landed since.
       - name: Refresh the published package index
         shell: bash
-        env: { MCPP_INDEX_MIRROR: GLOBAL }
-        run: "$MCPP" index update
+        env:
+          MCPP_INDEX_MIRROR: GLOBAL
+        run: |
+          "$MCPP" index update
 
       # mcpp#344: object-path disambiguation keys on basename collisions across
       # the whole build dir, while the package cache key covers only the
@@ -69,7 +71,8 @@ jobs:
         env:
           MCPP_INDEX_MIRROR: GLOBAL
           MCPP_BUILD_CACHE: local
-        run: "$MCPP" run
+        run: |
+          "$MCPP" run
 
   manifest-matches-upstream:
     name: source list == upstream CMakeLists
