@@ -23,13 +23,16 @@
 //      feature is absent. The 7 resolver TUs are handled the other way round —
 //      declaratively, by [features.ares].sources.
 //
-// Style follows opencv-m: textual std includes first, then `import mcpp;`
-// (the mcpp module is bundled in the mcpp binary, so it always matches the
-// directive protocol). Diagnostics go to stdout as non-directive lines —
-// never stderr, which can interleave into the buffered directive stream.
-#include <cstdio>
-#include <string>
-
+// `import std;` rather than textual <cstdio>/<string>: a build program is
+// ordinary C++23 and there is no reason for it to be the one place in a
+// modular project that falls back to headers. mcpp builds the host std module
+// for it, reusing the very BMI the project's own TUs import. If a host
+// toolchain ships no std module, mcpp says so and names the fix.
+//
+// The mcpp module is bundled in the mcpp binary, so it always matches the
+// directive protocol. Diagnostics go to stdout as non-directive lines — never
+// stderr, which can interleave into the buffered directive stream.
+import std;
 import mcpp;
 
 int main() {

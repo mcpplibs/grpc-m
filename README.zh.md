@@ -74,17 +74,54 @@ class Greeter final : public helloworld::Greeter::Service {
 
 ## 代码生成
 
-gRPC 需要两个宿主工具 —— `protoc` 与 `grpc_cpp_plugin` —— 而 mcpp 没有把依赖的构建产物
-交给消费者的机制。因此模板与 `examples/helloworld` 里的生成产物是**签入**的:
+gRPC 需要两个宿主工具 —— `protoc` 与 `grpc_cpp_plugin` —— 自 **mcpp 2026.8.5.1** 起
+你不再需要自己准备它们。把它们声明在各自所属的依赖上、再加上 codegen 规则,配置就完了:
 
-```bash
-protoc -I proto --cpp_out=gen --grpc_out=gen \
-       --plugin=protoc-gen-grpc=$(which grpc_cpp_plugin) \
-       proto/helloworld.proto
+```toml
+[dependencies]
+grpc            = "1.83.0"
+grpc-plugin     = { version = "1.83.0", tools = ["grpc_cpp_plugin"] }
+grpcgen         = { version = "1.83.0", host-module = true }
+compat.protobuf = { version = "35.1",   tools = ["protoc"] }
 ```
 
-`protoc` 必须是 **35.1**(与 `compat.protobuf` 对齐,上游提供全平台预编译包),
-`grpc_cpp_plugin` 必须来自 **gRPC 1.83.0**。
+```cpp
+// build.mcpp —— 全文如此
+import mcpp;
+import grpcgen;
+int main() { return grpcgen::generate({"helloworld"}) ? 0 : 1; }
+```
+
+这就是 `templates/greeter`,`mcpp new --template grpc` 直接给你一份能建的
+(`--template` 接的是**包名**;一个包带多个模板时写成 `grpc:greeter`)。
+**仓库里不再签入任何生成产物** —— 改 `.proto` 然后重新构建,就这样。
+
+`grpcgen` 是一个普通的 mcpp 包,里面装着那条规则,用 C++ 写、与 gRPC 同版本发布。
+规则走你已经在用的包管理器分发,所以这里**没有第二门语言** —— 不像 xmake 用 Lua rule、
+Bazel 用 Starlark。它需要 **mcpp 2026.8.5.2**:规则包是从那一版起才真正能用
+`import std;` 与 `import mcpp;` 的。
+
+两个示例,是刻意的:
+
+| | |
+|---|---|
+| `examples/greeter` | 模板的实例化 —— 经 `grpcgen`,`build.mcpp` 三行 |
+| `examples/helloworld` | 同一个程序,但把规则手工摊开写,让机制保持可读 |
+
+由此得到三个手工管理 codegen 给不了的性质:
+
+- **版本错配不可表达。** 工具的版本**就是**那条依赖的版本,所以「protoc 与 protobuf
+  运行时对不上」——这是**运行期**才炸、也是 protobuf codegen 最难查的一类问题——
+  在语法上无法发生。(Conan 为了近似这一点专门引入了 `<host_version>` 占位符;
+  protobuf 自己的 CMake 至今有一个 open issue:CONFIG 模式下 `Protobuf_PROTOC_EXECUTABLE`
+  被忽略。)
+- **增量。** 生成是一条 ninja 边,`.proto` 变了才重跑,不变就不跑。
+- **交叉编译构造上就对。** `--target` 下工具依然为构建机器构建,你什么都不用做。
+
+> `grpc-plugin` 是独立的包而不是 `grpc` 里的一个 target,因为上游的插件只链
+> `grpc_plugin_support` + protobuf,别的都不链 —— 一个代码生成器需要的是 `.proto`
+> 解析器和 C++ 发射器,不是 TLS、DNS 和正则引擎。
+> 详见 `.agents/docs/2026-08-05-codegen-ecosystem-design.md` §2。
 
 ## 平台支持
 
@@ -112,7 +149,10 @@ third_party/grpc-1.83.0/   钉住的上游源码,零补丁
 src/grpc.cppm              C++23 模块接口(同时也是 lib root)
 tools/gen_sources.py       从上游 CMakeLists.txt 重新生成源码清单
 build.mcpp                 私有 include 目录 + `ares` 的关闭态
-examples/helloworld/       真实服务端、真实客户端、真实 RPC
+rules/                     `grpcgen` —— codegen 规则包(host module)
+plugin/                    `grpc_cpp_plugin` —— 独立的 codegen 工具包
+examples/greeter/          模板实例化:三行 build.mcpp
+examples/helloworld/       同一个程序,规则手工摊开写
 ```
 
 `mcpp.toml` 里那份 995 条的源码清单是**上游自己的** —— `add_library(gpr)`、
@@ -144,7 +184,8 @@ gRPC **不发布任何自包含的源码产物**。它的 tag 归档里 abseil�
 
 ```bash
 mcpp test                      # 构建库并运行模块测试
-cd examples/helloworld && mcpp run
+cd examples/greeter && mcpp run      # 三行 build.mcpp(经 grpcgen)
+cd examples/helloworld && mcpp run   # 同一个程序,规则手写
 ```
 
 ## License

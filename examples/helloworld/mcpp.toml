@@ -4,21 +4,20 @@
 # that stands the server up on a loopback port and calls it, so `mcpp run`
 # answers "does gRPC actually work" with an exit code.
 #
-# CODE GENERATION. gen/ holds protoc output, CHECKED IN on purpose. gRPC's
-# codegen needs two host tools — protoc and grpc_cpp_plugin — and mcpp has no
-# way to hand a dependency's built binaries to a consumer (`mcpp::dep_dir()`
-# gives a package's source dir, and there is no mechanism that exposes a
-# dependency's `kind = "bin"` targets). Distributing those tools is tracked
-# separately; until then the generated files are committed so this example
-# builds with nothing but mcpp. Regenerate with:
+# CODE GENERATION (mcpp 2026.8.5.1+). There is no gen/ directory any more. The
+# stubs are generated during the build, by protoc and grpc_cpp_plugin that mcpp
+# builds FROM THE SAME PACKAGES this project links against:
 #
-#   protoc -I proto \
-#          --cpp_out=gen --grpc_out=gen \
-#          --plugin=protoc-gen-grpc=$(which grpc_cpp_plugin) \
-#          proto/helloworld.proto
+#   compat.protobuf → protoc            (matches the protobuf runtime)
+#   grpc-plugin     → grpc_cpp_plugin   (matches the gRPC being linked)
 #
-# protoc must be 35.1 to match compat.protobuf (upstream publishes prebuilt
-# protoc for every platform); grpc_cpp_plugin must come from gRPC 1.83.0.
+# Both are declared with `tools = [...]`, so a tool's version IS its
+# dependency's version — a protoc/runtime mismatch, which is a RUNTIME failure
+# and the nastiest thing about hand-managed protobuf codegen, is not
+# expressible here. Under `--target` both tools are still built for the build
+# machine, because a code generator has to run here.
+#
+# See ../../.agents/docs/2026-08-05-codegen-ecosystem-design.md.
 [package]
 name        = "helloworld"
 version     = "0.1.0"
@@ -27,9 +26,10 @@ description = "gRPC hello-world: real server + real client + real RPC, in one pr
 license     = "Apache-2.0"
 
 [build]
-sources = ["src/main.cpp", "gen/helloworld.pb.cc", "gen/helloworld.grpc.pb.cc"]
-# gen/ so the generated .grpc.pb.cc can find its own "helloworld.pb.h".
-include_dirs = ["gen"]
+# Only the hand-written source. The generated .pb.cc / .grpc.pb.cc join the
+# build as declared outputs of build.mcpp's actions, and the include dir for
+# their headers comes from there too — nothing generated is checked in.
+sources = ["src/main.cpp"]
 
 [targets.helloworld]
 kind = "bin"
@@ -37,4 +37,8 @@ main = "src/main.cpp"
 
 [dependencies]
 grpc = { path = "../.." }
-
+# The two host tools. `grpc-plugin` is a package separate from `grpc` on
+# purpose: a code generator needs a .proto parser and a C++ emitter, not TLS,
+# DNS and a regex engine — see the design doc §2.
+grpc-plugin     = { path = "../../plugin", tools = ["grpc_cpp_plugin"] }
+compat.protobuf = { version = "35.1", tools = ["protoc"] }

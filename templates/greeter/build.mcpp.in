@@ -1,0 +1,22 @@
+// gRPC codegen.
+//
+// To add a .proto: drop it in proto/ and add its name below.
+//
+// The rule lives in the `grpcgen` package rather than in this file, so it is
+// versioned, tested and fixed in one place instead of copy-pasted into every
+// project. It declares one build-graph edge per .proto — meaning protoc re-runs
+// exactly when a .proto changes, in parallel with the rest of the build, and a
+// failure is reported against the edge that produced it rather than as
+// "build.mcpp exited 1".
+//
+// protoc and grpc_cpp_plugin are built by mcpp for THIS machine out of the same
+// packages this project links, so they cannot be a different version from the
+// runtime. Under `mcpp build --target <triple>` they are still built for the
+// build machine, because a code generator has to run here. You do not have to
+// do anything for that.
+import mcpp;
+import grpcgen;
+
+int main() {
+    return grpcgen::generate({"helloworld"}) ? 0 : 1;
+}

@@ -76,18 +76,58 @@ Prefer plain headers instead? That works too and needs no import at all:
 
 ## Code generation
 
-gRPC needs two host tools — `protoc` and `grpc_cpp_plugin` — and mcpp has no mechanism
-for handing a dependency's built binaries to a consumer. So generated stubs are checked
-in, both in the template and in `examples/helloworld`:
+gRPC needs two host tools — `protoc` and `grpc_cpp_plugin` — and since **mcpp 2026.8.5.1**
+you no longer supply them yourself. Declare them on the dependencies they belong to, add
+the codegen rule, and that is the entire setup:
 
-```bash
-protoc -I proto --cpp_out=gen --grpc_out=gen \
-       --plugin=protoc-gen-grpc=$(which grpc_cpp_plugin) \
-       proto/helloworld.proto
+```toml
+[dependencies]
+grpc            = "1.83.0"
+grpc-plugin     = { version = "1.83.0", tools = ["grpc_cpp_plugin"] }
+grpcgen         = { version = "1.83.0", host-module = true }
+compat.protobuf = { version = "35.1",   tools = ["protoc"] }
 ```
 
-`protoc` must be **35.1** to match `compat.protobuf` (upstream publishes prebuilt protoc
-for every platform), and `grpc_cpp_plugin` must come from **gRPC 1.83.0**.
+```cpp
+// build.mcpp — in full
+import mcpp;
+import grpcgen;
+int main() { return grpcgen::generate({"helloworld"}) ? 0 : 1; }
+```
+
+That is `templates/greeter`, and `mcpp new --template grpc` gives it to you ready to
+build (`--template` takes the PACKAGE; spell the template out as `grpc:greeter` when a
+package ships more than one). **No generated file is checked in any more** — edit the `.proto` and rebuild.
+
+`grpcgen` is an ordinary mcpp package holding the rule, written in C++ and versioned
+alongside gRPC. Rules ship through the package manager you already have, so there is no
+second language here the way xmake has Lua rules and Bazel has Starlark. It needs
+**mcpp 2026.8.5.2**, which is where a rule package first became able to use `import std;`
+and `import mcpp;`.
+
+Two examples, on purpose:
+
+| | |
+|---|---|
+| `examples/greeter` | the template instantiated — 3-line `build.mcpp` via `grpcgen` |
+| `examples/helloworld` | the same program with the rule written out by hand, so the mechanism stays legible |
+
+Three properties this buys, none of which hand-managed codegen can offer:
+
+- **A version mismatch is not expressible.** A tool's version *is* its dependency's
+  version, so a `protoc` that disagrees with the protobuf runtime — a **runtime** failure,
+  and the nastiest thing about protobuf codegen — cannot happen. (Conan needed a
+  `<host_version>` placeholder to approximate this; protobuf's own CMake still has an open
+  issue where `Protobuf_PROTOC_EXECUTABLE` is ignored in CONFIG mode.)
+- **Incremental.** Generation is a ninja edge, so it re-runs when its `.proto` changes and
+  not otherwise.
+- **Cross-compilation is correct by construction.** Under `--target` the tools are still
+  built for the build machine, with no action from you.
+
+> `grpc-plugin` is a package of its own rather than a target inside `grpc`, because
+> upstream's plugin links `grpc_plugin_support` + protobuf and nothing else — a code
+> generator needs a `.proto` parser and a C++ emitter, not TLS, DNS and a regex engine.
+> See `.agents/docs/2026-08-05-codegen-ecosystem-design.md` §2.
 
 ## Platform support
 
@@ -116,7 +156,10 @@ third_party/grpc-1.83.0/   pinned upstream source, zero patches
 src/grpc.cppm              the C++23 module interface (also the lib root)
 tools/gen_sources.py       regenerates the source list from upstream CMakeLists.txt
 build.mcpp                 private include dirs + the `ares` off-state
-examples/helloworld/       a real server, a real client, a real RPC
+rules/                     `grpcgen` — the codegen rule package (host module)
+plugin/                    `grpc_cpp_plugin` — the codegen tool, its own package
+examples/greeter/          the template instantiated: 3-line build.mcpp
+examples/helloworld/       the same program with the rule written out by hand
 ```
 
 The 995-entry source list in `mcpp.toml` is **upstream's own** — the union of
@@ -151,7 +194,8 @@ tarball is that artifact.
 
 ```bash
 mcpp test                      # builds the library, runs the module test
-cd examples/helloworld && mcpp run
+cd examples/greeter && mcpp run      # 3-line build.mcpp (via grpcgen)
+cd examples/helloworld && mcpp run   # same program, rule written by hand
 ```
 
 ## License

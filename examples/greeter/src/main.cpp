@@ -1,4 +1,4 @@
-// {{project.name}} — generated from {{self.name}}@{{self.version}}:greeter
+// greeter — generated from grpc@1.83.0:greeter
 //
 // A gRPC greeter, end to end in ONE process.
 //
