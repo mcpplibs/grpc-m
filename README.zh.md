@@ -31,11 +31,11 @@ Greeter replied: Hello mcpp
 或加入已有工程:
 
 ```bash
-mcpp add grpc
+mcpp add grpc.grpc
 ```
 
 ```toml
-[dependencies.mcpplibs]
+[dependencies.grpc]
 grpc = "1.83.0"
 ```
 
@@ -79,10 +79,10 @@ gRPC 需要两个宿主工具 —— `protoc` 与 `grpc_cpp_plugin` —— 自 *
 
 ```toml
 [dependencies]
-grpc            = "1.83.0"
-grpc-plugin     = { version = "1.83.0", tools = ["grpc_cpp_plugin"] }
-grpcgen         = { version = "1.83.0", host-module = true }
-compat.protobuf = { version = "35.1",   tools = ["protoc"] }
+grpc.grpc        = "1.83.0"
+grpc.grpc-plugin = { version = "1.83.0", tools = ["grpc_cpp_plugin"] }
+grpcgen          = { version = "1.83.0", host-module = true }
+compat.protobuf  = { version = "35.1",   tools = ["protoc"] }
 ```
 
 ```cpp
@@ -138,7 +138,7 @@ windows 所需的编译/链接选项已经写在 `mcpp.toml` 里,等那个条目
 | `ares` | **开** | c-ares 异步 DNS 解析器,与上游 gRPC 一致。用 `default-features = false` 关闭:7 个 TU 与 `compat.c-ares` 依赖一并移除,并定义 `GRPC_ARES=0`,gRPC 改用原生解析器 —— 即上游自己的 `grpc_no_ares=true` 配置。 |
 
 ```toml
-[dependencies.mcpplibs]
+[dependencies.grpc]
 grpc = { version = "1.83.0", default-features = false }   # 不带 c-ares
 ```
 
