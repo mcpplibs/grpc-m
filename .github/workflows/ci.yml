@@ -8,10 +8,13 @@ on:
 env:
   # Keep in step with the mcpp-index CI pin: this package's dependencies are
   # index packages, and they are validated against that same mcpp.
-  # 2026.8.5.1 is the FLOOR, not a routine pin: `tools = [...]` host tools and
-  # `mcpp:action=` build-graph nodes — what the codegen in templates/ and
-  # examples/ is built on — do not exist before it.
-  MCPP_VERSION: "2026.8.5.1"
+  # 2026.8.5.2 is the FLOOR, not a routine pin. Three things the codegen in
+  # templates/ and examples/ is built on do not exist before it:
+  #   2026.8.5.1  `tools = [...]` host tools; `mcpp:action=` build-graph nodes
+  #   2026.8.5.2  a `host-module = true` rule package may use `import std;` and
+  #               `import mcpp;` — rules/ needs both, and before .5.2 it failed
+  #               with `module 'std' not found` / `module 'mcpp' not found`
+  MCPP_VERSION: "2026.8.5.2"
 
 jobs:
   build:
@@ -73,6 +76,7 @@ jobs:
           "$MCPP" --version
           "$MCPP" test
 
+      # The long form: codegen spelled out by hand in build.mcpp.
       - name: helloworld example — a real RPC over loopback
         shell: bash
         working-directory: examples/helloworld
@@ -82,25 +86,61 @@ jobs:
         run: |
           "$MCPP" run
 
-  plugin-version-matches:
-    name: grpc-plugin version == grpc version
+      # The short form: the same program, with codegen from the `grpcgen` rule
+      # package and a three-line build.mcpp. This example IS templates/greeter
+      # instantiated, so building it is how the template gets tested — a broken
+      # template would otherwise only be discovered by a user running
+      # `mcpp new`.
+      - name: greeter example — the template, via the rule package
+        shell: bash
+        working-directory: examples/greeter
+        env:
+          MCPP_INDEX_MIRROR: GLOBAL
+          MCPP_BUILD_CACHE: local
+        run: |
+          "$MCPP" run
+
+  package-versions-match:
+    name: all three packages share one version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       # The plugin generates code that calls gRPC internals, so a plugin built
       # from a different release than the runtime being linked is exactly the
-      # mismatch this whole design exists to make impossible. They ship as two
-      # index entries from one tag, so nothing but a check keeps them equal.
+      # mismatch this whole design exists to make impossible. The rule package
+      # names both of the others by version in what it tells users to write.
+      # All three ship as separate index entries from ONE tag, so nothing but a
+      # check keeps them equal.
       - name: versions must match
         shell: bash
         run: |
           lib=$(awk -F'"' '/^version/{print $2; exit}' mcpp.toml)
           plug=$(awk -F'"' '/^version/{print $2; exit}' plugin/mcpp.toml)
-          echo "grpc=$lib  grpc-plugin=$plug"
-          if [ "$lib" != "$plug" ]; then
-            echo "FAIL: grpc-plugin version ($plug) must equal grpc version ($lib)"
+          rule=$(awk -F'"' '/^version/{print $2; exit}' rules/mcpp.toml)
+          echo "grpc=$lib  grpc-plugin=$plug  grpcgen=$rule"
+          rc=0
+          [ "$lib" = "$plug" ] || { echo "FAIL: grpc-plugin ($plug) != grpc ($lib)"; rc=1; }
+          [ "$lib" = "$rule" ] || { echo "FAIL: grpcgen ($rule) != grpc ($lib)"; rc=1; }
+          exit $rc
+
+  template-matches-example:
+    name: templates/greeter == examples/greeter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # examples/greeter is the template instantiated; CI builds it, which is
+      # the only thing that tests the template at all. That only holds while
+      # the two do not drift, and build.mcpp is the file that matters — it is
+      # pure code with no substitutions, so it must be byte-identical.
+      - name: build.mcpp must be identical
+        shell: bash
+        run: |
+          if ! diff -u templates/greeter/build.mcpp.in examples/greeter/build.mcpp; then
+            echo "FAIL: the template and its example have drifted apart."
+            echo "      cp templates/greeter/build.mcpp.in examples/greeter/build.mcpp"
             exit 1
           fi
+          echo "template and example agree"
 
   manifest-matches-upstream:
     name: source list == upstream CMakeLists

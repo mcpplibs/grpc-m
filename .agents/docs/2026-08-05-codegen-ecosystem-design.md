@@ -1,10 +1,11 @@
 # grpc-m 全生态打通：让 codegen 不再签入仓库
 
 > 状态：**已验证，实施中**
-> 依赖：mcpp **2026.8.5.1**（#355 依赖产出的 host 工具、`mcpp:action=` 构建图节点、
-> `host-module = true` 规则包）
-> 涉及：本仓库的 `plugin/`（新）、`templates/`、`examples/`、`.github/workflows/ci.yml`；
-> `mcpp-index` 的 `compat.protobuf` 与新条目 `mcpplibs.grpc-plugin`
+> 依赖：mcpp **2026.8.5.2**（.5.1 给出 #355 依赖产出的 host 工具与 `mcpp:action=` 构建图节点；
+> .5.2 才让 `host-module = true` 规则包真正可用 —— 规则里能 `import std;` 与 `import mcpp;`）
+> 涉及：本仓库的 `plugin/`（新）、`rules/`（新）、`templates/`、`examples/`、
+> `.github/workflows/ci.yml`；`mcpp-index` 的 `compat.protobuf` 与新条目
+> `mcpplibs.grpc-plugin` / `mcpplibs.grpcgen`
 
 ---
 
@@ -162,23 +163,60 @@ compat.protobuf = { version = "35.1",   tools = ["protoc"] }
 模板直接给出可用的 `build.mcpp`，用户 `mcpp new --template greeter` 之后改 `.proto`
 即可，**不需要理解 action 的细节**。
 
-### 5.2 下一步：规则包（不在本次范围，设计在此）
+### 5.2 规则包（**已实施** —— `rules/` 包 `grpcgen`）
 
 | | 用户要写 |
 |---|---|
 | CMake + vcpkg/Conan | `protobuf_generate(TARGET app)` ≈ 1 行（交叉时要自己处理 host protoc） |
 | xmake | `add_rules("protobuf.cpp")` ≈ 1 行（交叉下 protoc **没接通**） |
-| **mcpp 本方案** | 约 20 行 build.mcpp |
-| mcpp + 规则包 | **约 3 行** |
+| mcpp，手写 build.mcpp | 约 60 行（= `examples/helloworld`） |
+| **mcpp + 规则包** | **3 行**（= `templates/greeter` 与 `examples/greeter`） |
 
-`host-module = true` 就是为这一步做的：规则以**普通 mcpp 包**分发，消费者
-`import mcpp.rules.grpc;`。规则因此有版本、能测试、能发布，而且是 **C++** 写的 ——
+```cpp
+import mcpp;
+import grpcgen;
+int main() { return grpcgen::generate({"helloworld"}) ? 0 : 1; }
+```
+
+规则以**普通 mcpp 包**分发：有版本、能测试、能发布，而且是 **C++** 写的 ——
 不引入第二门语言（xmake 用 Lua rule、Bazel 用 Starlark）。
 
-**为什么不在本次做**：规则包要有自己的发布节奏；而且有一个**已知的引擎缺口**要先补 ——
-一个 `host-module` 规则包**带不动自己的 tools**：工具的环境变量按「请求它的那个包」
-记账，而规则代码是在**消费者**的 build.mcpp 里执行的，于是消费者看不到那个变量。
-补法是让 host-module 依赖的 tools 转发给消费者，是一处小改动，但要单独做。
+> 初版设计把这一步推迟了，理由是「规则包带不动自己的 tools」。**那条理由不成立**：
+> 消费者本来就要在自己的 manifest 里声明 grpc / grpc-plugin / protobuf，`tools = [...]`
+> 写在同一处，于是环境变量本来就在消费者进程里，规则直接 `mcpp::dep_bin()` 就能读到。
+>
+> 真正挡路的是**另外两个**缺口，都是 2026.8.5.1 引入的，已在 **mcpp 2026.8.5.2** 修掉
+> （mcpp PR #357），因此本仓库的 CI floor 是 2026.8.5.2：
+>
+> 1. **规则里 `import std;` 编不过。** host module 在 std 模块建好之前就被编译，
+>    `stdFlags` 是空的；而且「是否需要 std」只扫 `build.mcpp`，规则说了不算。
+> 2. **规则里 `import mcpp;` 编不过。** `host-module = true` 只注册模块，没把这个包
+>    移出消费者的普通依赖图 —— 同一个 `.cppm` 又被当普通库编一遍，那次编译里
+>    `mcpp` 模块并不存在，报 `fatal error: module 'mcpp' not found`。
+>
+> 换句话说：规则包机制发布时，**只能承载「手工 printf 指令」的玩具规则**。
+> grpc-m 是它的第一个真实使用者，一次撞上两个。
+
+**命名是承重的**：mcpp 用依赖的裸 `package.name` 注册 host 模块，所以包名**就是**
+模块名，必须是合法 C++ 模块名。`grpc-rules` 不行（连字符），`grpcgen` 可以 ——
+而且报错是 `module 'grpc_rules' not found`，不会提示你名字有问题。
+
+**为什么规则里那段 well-known types 探测不能省**：protoc 不内嵌 WKT，
+`import "google/protobuf/timestamp.proto"` 是从磁盘读的。真实服务几乎必用
+Timestamp / Duration / Any，所以这不是边角情况 —— 它是**用户写第二个 .proto 时
+必然撞上的墙**。路径可以从 `mcpp::dep_dir("protobuf")` 推出来，代价是规则里多 8 行；
+把这 8 行放进规则包，正是规则包存在的意义。
+
+### 5.3 三个包，一个 tag
+
+| 包 | 是什么 | 消费者怎么写 |
+|---|---|---|
+| `mcpplibs.grpc` | gRPC 运行时 | `grpc = "1.83.0"` |
+| `mcpplibs.grpc-plugin` | `grpc_cpp_plugin`（codegen 工具） | `{ version = "1.83.0", tools = ["grpc_cpp_plugin"] }` |
+| `mcpplibs.grpcgen` | 构建规则（host module） | `{ version = "1.83.0", host-module = true }` |
+
+三者同 tag、同版本号，CI 的 `package-versions-match` 机器校验 —— 版本漂开正是本
+方案要消灭的那类错配。
 
 ## 6. 已知缺口（都不阻塞本方案）
 
@@ -197,8 +235,9 @@ compat.protobuf = { version = "35.1",   tools = ["protoc"] }
 | ✓ grpc_cpp_plugin 可构建 | 3 TU + libprotoc，**2.19s**（protobuf 命中全局缓存） |
 | ✓ 两者生成的桩子正确 | 四个文件与仓库签入的**逐字节相同** |
 | ✓ 工具进全局 store 并跨工程复用 | 二次构建不重建 |
-| 生成的桩子能编能跑 | example 去签入 gen/ 后 `mcpp run` 完成真实 RPC |
-| 改 `.proto` 触发重新生成 | 且不相关的重建不触发 |
+| 生成的桩子能编能跑 | **本地未验证** —— 本沙箱装不上 compat.openssl（gRPC 的硬依赖），由 CI 的 linux + macOS 两条腿验证 |
+| ✓ 改 `.proto` 触发重新生成 | 实测 1.38s vs 空转 0.02s；跨 proto import 也重跑 |
+| ✓ 规则包把 build.mcpp 降到 3 行 | 已用 protobuf-only 工程实测跑通全链路（生成→编译→链接→运行）；`examples/greeter` = 模板实例化，CI 构建它即测试模板 |
 
 ## 8. 明确不做
 

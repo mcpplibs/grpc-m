@@ -1,0 +1,39 @@
+# grpcgen — the gRPC/protobuf codegen rule, as a package.
+#
+# A rule ("run protoc and grpc_cpp_plugin over these .proto files") should be
+# written once, not copy-pasted into every consumer's build.mcpp. mcpp ships it
+# as an ordinary library package that the consumer imports from its build
+# program:
+#
+#   [dependencies]
+#   grpcgen = { version = "1.83.0", host-module = true }
+#
+#   // build.mcpp
+#   import mcpp;
+#   import grpcgen;
+#   int main() { return grpcgen::generate({"helloworld"}) ? 0 : 1; }
+#
+# Rules are therefore versioned, testable and distributed through the package
+# manager that already exists — and written in C++, so the build does not grow
+# a second language the way xmake's Lua rules or Bazel's Starlark do.
+#
+# The package name is load-bearing: mcpp registers a host module under the
+# dependency's `package.name`, so the name here IS the module name and must be
+# a legal C++ module name (no hyphens, no dots).
+#
+# Versioned in lock-step with grpc and grpc-plugin: all three ship from one
+# tag, and .github/workflows/ci.yml checks that they never drift apart.
+[package]
+name        = "grpcgen"
+version     = "1.83.0"
+standard    = "c++23"
+description = "protoc + grpc_cpp_plugin codegen as an importable mcpp build rule"
+license     = "Apache-2.0"
+repo        = "https://github.com/mcpplibs/grpc-m"
+platforms   = ["linux", "macos", "windows"]
+
+# No dependencies on purpose. A host module is compiled alongside build.mcpp,
+# where only `std` and the bundled `mcpp` module exist — see the note at the
+# top of src/grpcgen.cppm for why this rule uses neither.
+[targets.grpcgen]
+kind = "lib"

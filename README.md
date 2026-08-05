@@ -77,30 +77,39 @@ Prefer plain headers instead? That works too and needs no import at all:
 ## Code generation
 
 gRPC needs two host tools — `protoc` and `grpc_cpp_plugin` — and since **mcpp 2026.8.5.1**
-you no longer supply them yourself. Declare them on the dependencies they belong to and
-mcpp builds them for your machine:
+you no longer supply them yourself. Declare them on the dependencies they belong to, add
+the codegen rule, and that is the entire setup:
 
 ```toml
 [dependencies]
 grpc            = "1.83.0"
 grpc-plugin     = { version = "1.83.0", tools = ["grpc_cpp_plugin"] }
+grpcgen         = { version = "1.83.0", host-module = true }
 compat.protobuf = { version = "35.1",   tools = ["protoc"] }
 ```
 
 ```cpp
-// build.mcpp — declare the generation as a build-graph edge
-mcpp::action gen;
-gen.role = "source";
-gen.arg(mcpp::dep_bin("protobuf", "protoc"))
-   .arg("--cpp_out=…").arg("--grpc_out=…")
-   .arg(std::string("--plugin=protoc-gen-grpc=") + mcpp::dep_bin("grpc-plugin", "grpc_cpp_plugin"))
-   .input("proto/helloworld.proto")
-   .output("…/helloworld.pb.cc").output("…/helloworld.grpc.pb.cc")
-   .submit();
+// build.mcpp — in full
+import mcpp;
+import grpcgen;
+int main() { return grpcgen::generate({"helloworld"}) ? 0 : 1; }
 ```
 
-`templates/greeter` and `examples/helloworld` both do exactly this — **no generated file
-is checked in any more**. Edit the `.proto` and rebuild.
+That is `templates/greeter`, and `mcpp new --template greeter` gives it to you ready to
+build. **No generated file is checked in any more** — edit the `.proto` and rebuild.
+
+`grpcgen` is an ordinary mcpp package holding the rule, written in C++ and versioned
+alongside gRPC. Rules ship through the package manager you already have, so there is no
+second language here the way xmake has Lua rules and Bazel has Starlark. It needs
+**mcpp 2026.8.5.2**, which is where a rule package first became able to use `import std;`
+and `import mcpp;`.
+
+Two examples, on purpose:
+
+| | |
+|---|---|
+| `examples/greeter` | the template instantiated — 3-line `build.mcpp` via `grpcgen` |
+| `examples/helloworld` | the same program with the rule written out by hand, so the mechanism stays legible |
 
 Three properties this buys, none of which hand-managed codegen can offer:
 
@@ -146,7 +155,10 @@ third_party/grpc-1.83.0/   pinned upstream source, zero patches
 src/grpc.cppm              the C++23 module interface (also the lib root)
 tools/gen_sources.py       regenerates the source list from upstream CMakeLists.txt
 build.mcpp                 private include dirs + the `ares` off-state
-examples/helloworld/       a real server, a real client, a real RPC
+rules/                     `grpcgen` — the codegen rule package (host module)
+plugin/                    `grpc_cpp_plugin` — the codegen tool, its own package
+examples/greeter/          the template instantiated: 3-line build.mcpp
+examples/helloworld/       the same program with the rule written out by hand
 ```
 
 The 995-entry source list in `mcpp.toml` is **upstream's own** — the union of
@@ -181,7 +193,8 @@ tarball is that artifact.
 
 ```bash
 mcpp test                      # builds the library, runs the module test
-cd examples/helloworld && mcpp run
+cd examples/greeter && mcpp run      # 3-line build.mcpp (via grpcgen)
+cd examples/helloworld && mcpp run   # same program, rule written by hand
 ```
 
 ## License

@@ -75,29 +75,37 @@ class Greeter final : public helloworld::Greeter::Service {
 ## 代码生成
 
 gRPC 需要两个宿主工具 —— `protoc` 与 `grpc_cpp_plugin` —— 自 **mcpp 2026.8.5.1** 起
-你不再需要自己准备它们。把它们声明在各自所属的依赖上,mcpp 会为你的机器构建出来:
+你不再需要自己准备它们。把它们声明在各自所属的依赖上、再加上 codegen 规则,配置就完了:
 
 ```toml
 [dependencies]
 grpc            = "1.83.0"
 grpc-plugin     = { version = "1.83.0", tools = ["grpc_cpp_plugin"] }
+grpcgen         = { version = "1.83.0", host-module = true }
 compat.protobuf = { version = "35.1",   tools = ["protoc"] }
 ```
 
 ```cpp
-// build.mcpp —— 把生成声明成构建图的一条边
-mcpp::action gen;
-gen.role = "source";
-gen.arg(mcpp::dep_bin("protobuf", "protoc"))
-   .arg("--cpp_out=…").arg("--grpc_out=…")
-   .arg(std::string("--plugin=protoc-gen-grpc=") + mcpp::dep_bin("grpc-plugin", "grpc_cpp_plugin"))
-   .input("proto/helloworld.proto")
-   .output("…/helloworld.pb.cc").output("…/helloworld.grpc.pb.cc")
-   .submit();
+// build.mcpp —— 全文如此
+import mcpp;
+import grpcgen;
+int main() { return grpcgen::generate({"helloworld"}) ? 0 : 1; }
 ```
 
-`templates/greeter` 与 `examples/helloworld` 都是这么做的 —— **仓库里不再签入任何生成
-产物**。改 `.proto` 然后重新构建,就这样。
+这就是 `templates/greeter`,`mcpp new --template greeter` 直接给你一份能建的。
+**仓库里不再签入任何生成产物** —— 改 `.proto` 然后重新构建,就这样。
+
+`grpcgen` 是一个普通的 mcpp 包,里面装着那条规则,用 C++ 写、与 gRPC 同版本发布。
+规则走你已经在用的包管理器分发,所以这里**没有第二门语言** —— 不像 xmake 用 Lua rule、
+Bazel 用 Starlark。它需要 **mcpp 2026.8.5.2**:规则包是从那一版起才真正能用
+`import std;` 与 `import mcpp;` 的。
+
+两个示例,是刻意的:
+
+| | |
+|---|---|
+| `examples/greeter` | 模板的实例化 —— 经 `grpcgen`,`build.mcpp` 三行 |
+| `examples/helloworld` | 同一个程序,但把规则手工摊开写,让机制保持可读 |
 
 由此得到三个手工管理 codegen 给不了的性质:
 
@@ -140,7 +148,10 @@ third_party/grpc-1.83.0/   钉住的上游源码,零补丁
 src/grpc.cppm              C++23 模块接口(同时也是 lib root)
 tools/gen_sources.py       从上游 CMakeLists.txt 重新生成源码清单
 build.mcpp                 私有 include 目录 + `ares` 的关闭态
-examples/helloworld/       真实服务端、真实客户端、真实 RPC
+rules/                     `grpcgen` —— codegen 规则包(host module)
+plugin/                    `grpc_cpp_plugin` —— 独立的 codegen 工具包
+examples/greeter/          模板实例化:三行 build.mcpp
+examples/helloworld/       同一个程序,规则手工摊开写
 ```
 
 `mcpp.toml` 里那份 995 条的源码清单是**上游自己的** —— `add_library(gpr)`、
@@ -172,7 +183,8 @@ gRPC **不发布任何自包含的源码产物**。它的 tag 归档里 abseil�
 
 ```bash
 mcpp test                      # 构建库并运行模块测试
-cd examples/helloworld && mcpp run
+cd examples/greeter && mcpp run      # 三行 build.mcpp(经 grpcgen)
+cd examples/helloworld && mcpp run   # 同一个程序,规则手写
 ```
 
 ## License

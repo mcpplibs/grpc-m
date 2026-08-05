@@ -1,4 +1,13 @@
-# {{project.name}} — generated from {{self.name}}@{{self.version}}:greeter
+# greeter — what `mcpp new --template greeter` produces.
+#
+# This example exists to keep the TEMPLATE honest: it is the template
+# instantiated, so CI building it is CI testing what users are handed. The only
+# deliberate difference is that the three grpc-m packages are taken by `path`
+# rather than from the index, so the example tests the working tree.
+#
+# The sibling examples/helloworld does the same job with a hand-written
+# build.mcpp instead of the rule package — that one demonstrates the mechanism,
+# this one demonstrates the ergonomics.
 #
 # The protobuf/gRPC stubs are NOT checked in. They are generated during the
 # build by protoc and grpc_cpp_plugin, which mcpp builds for this machine out of
@@ -10,28 +19,26 @@
 # machine, because a code generator has to run here. You do not have to do
 # anything for that.
 [package]
-name        = "{{project.name}}"
+name        = "greeter"
 version     = "0.1.0"
 standard    = "c++23"
 
 [build]
 sources = ["src/main.cpp"]
 
-[targets.{{project.name}}]
+[targets.greeter]
 kind = "bin"
 main = "src/main.cpp"
 
-[dependencies.mcpplibs]
-{{self.name}} = "{{self.version}}"
+[dependencies]
+grpc = { path = "../.." }
 # The gRPC C++ codegen plugin — a package of its own rather than a target
 # inside gRPC, because a code generator needs a .proto parser and a C++
 # emitter, not TLS, DNS and a regex engine.
-grpc-plugin = { version = "{{self.version}}", tools = ["grpc_cpp_plugin"] }
+grpc-plugin = { path = "../../plugin", tools = ["grpc_cpp_plugin"] }
 # The codegen RULE. `host-module = true` makes its module importable from
 # build.mcpp, which is why build.mcpp is three lines instead of sixty. It is
 # build-time only — not compiled into or linked with this project.
-grpcgen = { version = "{{self.version}}", host-module = true }
-
-[dependencies.compat]
+grpcgen = { path = "../../rules", host-module = true }
 # protoc, pinned to the same protobuf this project links.
-protobuf = { version = "35.1", tools = ["protoc"] }
+compat.protobuf = { version = "35.1", tools = ["protoc"] }

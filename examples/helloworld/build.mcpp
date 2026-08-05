@@ -1,21 +1,54 @@
-// gRPC codegen, as build-graph nodes.
+// gRPC codegen, written out by hand.
 //
-// The two tools come from the dependency graph — `mcpp::dep_bin()` reads the
-// path mcpp published after building them for THIS machine. Nothing here knows
-// or cares whether they were built from source, taken from the global store, or
-// pointed at by a `[tools.overrides]` escape hatch.
+// ── YOU PROBABLY WANT ../greeter INSTEAD ────────────────────────────────────
+// That example — and `mcpp new --template greeter`, which produces it — does
+// exactly what this file does in THREE lines, by importing the `grpcgen` rule
+// package:
 //
-// The work is DECLARED, not done. Running protoc here would be the easy path
-// and the wrong one: it would re-run on every prepare, for every .proto at
-// once, serially, and a failure would surface as "build.mcpp exited 1".
-// Declared as an action it becomes an edge in the build graph — it re-runs
-// exactly when its .proto changes, in parallel with everything else, and a
-// failure is attributed to the edge that produced it.
+//     import mcpp;
+//     import grpcgen;
+//     int main() { return grpcgen::generate({"helloworld"}) ? 0 : 1; }
+//
+// This file is kept deliberately as the long form: it is the same work with
+// nothing hidden, so the mechanism stays legible and the rule package has
+// something to be checked against. Everything below is what grpcgen does for
+// you.
+// ────────────────────────────────────────────────────────────────────────────
+//
+// To add a .proto: drop it in proto/ and add its name to kProtos below.
+//
+// protoc and grpc_cpp_plugin are built by mcpp for THIS machine, out of the
+// same packages this project links — so they cannot be a different version
+// than the runtime. Under `mcpp build --target <triple>` they are still built
+// for the build machine, because a code generator has to run here. You do not
+// have to do anything for that.
 //
 // See ../../.agents/docs/2026-08-05-codegen-ecosystem-design.md.
 #include <cstdio>
+#include <filesystem>
 #include <string>
+
 import mcpp;
+
+// proto/<name>.proto
+static constexpr const char* kProtos[] = {
+    "helloworld",
+};
+
+// protoc does not embed the well-known types: `import
+// "google/protobuf/timestamp.proto"` — and Duration, Any, Empty, Struct, which
+// real services use constantly — is read from disk. They ship inside the
+// protobuf package this project already depends on, so the path is derivable
+// and you do not have to install anything. Found by looking for the directory
+// that holds descriptor.proto rather than by assuming the tarball's layout.
+static std::string well_known_types_dir() {
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    for (const auto& e : fs::directory_iterator(mcpp::dep_dir("protobuf"), ec))
+        if (fs::exists(e.path() / "src/google/protobuf/descriptor.proto", ec))
+            return (e.path() / "src").generic_string();
+    return {};
+}
 
 int main() {
     const std::string root = mcpp::manifest_dir();
@@ -23,47 +56,62 @@ int main() {
 
     const char* protoc = mcpp::dep_bin("protobuf", "protoc");
     const char* plugin = mcpp::dep_bin("grpc-plugin", "grpc_cpp_plugin");
-    if (!protoc || !*protoc) {
+    if (!protoc || !*protoc || !plugin || !*plugin) {
         std::fprintf(stderr,
-            "no protoc: declare  compat.protobuf = { version = \"35.1\", "
-            "tools = [\"protoc\"] }\n");
-        return 1;
-    }
-    if (!plugin || !*plugin) {
-        std::fprintf(stderr,
-            "no grpc_cpp_plugin: declare  grpc-plugin = { ..., "
-            "tools = [\"grpc_cpp_plugin\"] }\n");
+            "missing a codegen tool. Both are declared in mcpp.toml:\n"
+            "  compat.protobuf = { version = \"35.1\", tools = [\"protoc\"] }\n"
+            "  grpc-plugin     = { version = \"...\",  tools = "
+            "[\"grpc_cpp_plugin\"] }\n");
         return 1;
     }
 
-    const std::string proto = root + "/proto/helloworld.proto";
+    const std::string wkt = well_known_types_dir();
+    if (wkt.empty()) {
+        std::fprintf(stderr, "no well-known .proto files in the protobuf "
+                             "package\n");
+        return 1;
+    }
 
-    // ONE action, four declared outputs. protoc emits the message code and the
-    // service stubs in a single invocation, so splitting it would run protoc
-    // twice for no reason.
-    //
-    // The .pb.h / .grpc.pb.h are declared too: they must be PRODUCED by this
-    // edge (main.cpp and the generated .cc include them), but mcpp knows a
-    // header is not a translation unit and keeps them out of the compile set.
-    mcpp::action gen;
-    gen.id          = "protoc:helloworld";
-    gen.role        = "source";
-    gen.description = "protoc + grpc_cpp_plugin -> helloworld";
-    gen.arg(protoc)
-       .arg(("-I" + root + "/proto").c_str())
-       .arg(("--cpp_out=" + out).c_str())
-       .arg(("--grpc_out=" + out).c_str())
-       .arg((std::string("--plugin=protoc-gen-grpc=") + plugin).c_str())
-       .arg(proto.c_str())
-       .input(proto.c_str())
-       .output((out + "/helloworld.pb.cc").c_str())
-       .output((out + "/helloworld.pb.h").c_str())
-       .output((out + "/helloworld.grpc.pb.cc").c_str())
-       .output((out + "/helloworld.grpc.pb.h").c_str())
-       .submit();
+    for (const char* name : kProtos) {
+        const std::string proto = root + "/proto/" + name + ".proto";
+        const std::string base  = out + "/" + name;
 
-    // Where the generated headers live. PRIVATE to this package by design —
-    // an include dir a consumer must see belongs in the manifest, not in a
-    // build program.
+        // The work is DECLARED, not done. Running protoc here would re-run it
+        // on every prepare, serially, and report a failure as "build.mcpp
+        // exited 1". As an action it is an edge in the build graph: it re-runs
+        // when its .proto changes, in parallel, and a failure is attributed to
+        // the edge that produced it.
+        //
+        // One action, four outputs — protoc emits the messages and the service
+        // stubs in a single invocation. The headers are declared because they
+        // must be PRODUCED by this edge; mcpp knows a header is not a
+        // translation unit and keeps it out of the compile set.
+        //
+        // Every .proto is an input of every action: a .proto that imports a
+        // sibling has a dependency this file does not parse, and regenerating
+        // a little too eagerly beats silently stale stubs.
+        mcpp::action gen;
+        const std::string id = std::string("protoc:") + name;
+        gen.id          = id.c_str();
+        gen.role        = "source";
+        gen.description = id.c_str();
+        gen.arg(protoc)
+           .arg(("-I" + root + "/proto").c_str())
+           .arg(("-I" + wkt).c_str())
+           .arg(("--cpp_out=" + out).c_str())
+           .arg(("--grpc_out=" + out).c_str())
+           .arg((std::string("--plugin=protoc-gen-grpc=") + plugin).c_str())
+           .arg(proto.c_str());
+        for (const char* dep : kProtos)
+            gen.input((root + "/proto/" + dep + ".proto").c_str());
+        gen.output((base + ".pb.cc").c_str())
+           .output((base + ".pb.h").c_str())
+           .output((base + ".grpc.pb.cc").c_str())
+           .output((base + ".grpc.pb.h").c_str())
+           .submit();
+    }
+
+    // Where the generated headers live. PRIVATE to this package by design — an
+    // include dir a consumer must see belongs in the manifest, not here.
     mcpp::include_dir(out.c_str());
 }
