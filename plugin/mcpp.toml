@@ -1,0 +1,70 @@
+# grpc-plugin — the gRPC C++ codegen plugin (`grpc_cpp_plugin`) as a HOST tool.
+#
+# WHY THIS IS A SEPARATE PACKAGE, NOT A TARGET IN `grpc-m`
+#
+# Upstream links the plugin against `grpc_plugin_support` + protobuf and NOTHING
+# else — a code generator needs a .proto parser and a C++ emitter, not TLS, not
+# DNS, not a regex engine:
+#
+#     add_executable(grpc_cpp_plugin src/compiler/cpp_plugin.cc)
+#     target_link_libraries(grpc_cpp_plugin grpc_plugin_support)
+#
+# mcpp compiles a package into ONE object pool and links every object into each
+# of its `kind = "bin"` targets (there is no per-target source partition). So a
+# plugin target living inside grpc-m would link all ~1000 gRPC TUs and inherit
+# grpc-m's whole dependency set — OpenSSL, re2, c-ares, zlib. Measured: the
+# build fails outright on a machine where OpenSSL's from-source hook cannot run,
+# for a tool that never needed OpenSSL in the first place.
+#
+# Splitting it restores upstream's real dependency graph: 9 TUs plus protobuf's
+# libprotoc, and nothing else. That is also why this package deliberately has NO
+# feature gate — its entire purpose IS the tool, so there is no cost to gate.
+#
+# See ../.agents/docs/2026-08-05-codegen-ecosystem-design.md §3.
+[package]
+name        = "grpc-plugin"
+version     = "1.83.0"
+standard    = "c++23"
+description = "grpc_cpp_plugin — the gRPC C++ code generator, buildable as an mcpp host tool"
+license     = "Apache-2.0"
+repo        = "https://github.com/mcpplibs/grpc-m"
+# Same coverage as protobuf's: this needs only libprotoc, not gRPC's runtime,
+# so it is NOT limited by compat.openssl the way the main package is.
+platforms   = ["linux", "macos", "windows"]
+
+[build]
+# Upstream's `grpc_plugin_support` (CMakeLists.txt:6474) carries all eight
+# language generators because it also backs grpc_php_plugin, grpc_python_plugin
+# and friends. This package builds ONLY grpc_cpp_plugin, so it takes only what
+# cpp_plugin.cc actually reaches:
+#
+#   cpp_generator.cc      the C++ emitter
+#   proto_parser_helper.cc  used by cpp_generator for comment/leading-detail
+#
+# That is not a shortcut, it is the correct closure — and it MATTERS: the php
+# and objective-c generators reference libprotoc internals
+# (`compiler::objectivec::FileClassPrefix`, the php helpers) that protobuf does
+# not export in the source set compat.protobuf compiles, so including them fails
+# at LINK with undefined symbols for languages nobody asked to generate.
+sources = [
+    "src/compiler/cpp_generator.cc",
+    "src/compiler/proto_parser_helper.cc",
+]
+# `.` — the generators include each other as "src/compiler/…".
+# `include` — three gRPC PUBLIC headers the compiler needs
+# (grpcpp/impl/codegen/config_protobuf.h and the ports_def/undef .inc pair).
+# They are vendored HERE rather than reached for in the main package's tree:
+# this package ships as its own tarball, so a `../third_party/…` include would
+# resolve locally and break the moment it is consumed from the index. All three
+# are self-contained — config_protobuf.h includes only protobuf headers.
+include_dirs = [".", "include"]
+
+[targets.grpc_cpp_plugin]
+kind = "bin"
+main = "src/compiler/cpp_plugin.cc"
+
+[dependencies]
+# libprotoc — the plugin is a protoc plugin: it links protobuf's compiler
+# library, not its runtime alone. `protoc` also pulls `upb`, which libprotoc's
+# upb generator needs (leaving it out fails at LINK with undefined upb_* symbols).
+compat.protobuf = { version = "35.1", features = ["protoc", "upb"] }

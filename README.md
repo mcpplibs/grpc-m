@@ -76,18 +76,48 @@ Prefer plain headers instead? That works too and needs no import at all:
 
 ## Code generation
 
-gRPC needs two host tools — `protoc` and `grpc_cpp_plugin` — and mcpp has no mechanism
-for handing a dependency's built binaries to a consumer. So generated stubs are checked
-in, both in the template and in `examples/helloworld`:
+gRPC needs two host tools — `protoc` and `grpc_cpp_plugin` — and since **mcpp 2026.8.5.1**
+you no longer supply them yourself. Declare them on the dependencies they belong to and
+mcpp builds them for your machine:
 
-```bash
-protoc -I proto --cpp_out=gen --grpc_out=gen \
-       --plugin=protoc-gen-grpc=$(which grpc_cpp_plugin) \
-       proto/helloworld.proto
+```toml
+[dependencies]
+grpc            = "1.83.0"
+grpc-plugin     = { version = "1.83.0", tools = ["grpc_cpp_plugin"] }
+compat.protobuf = { version = "35.1",   tools = ["protoc"] }
 ```
 
-`protoc` must be **35.1** to match `compat.protobuf` (upstream publishes prebuilt protoc
-for every platform), and `grpc_cpp_plugin` must come from **gRPC 1.83.0**.
+```cpp
+// build.mcpp — declare the generation as a build-graph edge
+mcpp::action gen;
+gen.role = "source";
+gen.arg(mcpp::dep_bin("protobuf", "protoc"))
+   .arg("--cpp_out=…").arg("--grpc_out=…")
+   .arg(std::string("--plugin=protoc-gen-grpc=") + mcpp::dep_bin("grpc-plugin", "grpc_cpp_plugin"))
+   .input("proto/helloworld.proto")
+   .output("…/helloworld.pb.cc").output("…/helloworld.grpc.pb.cc")
+   .submit();
+```
+
+`templates/greeter` and `examples/helloworld` both do exactly this — **no generated file
+is checked in any more**. Edit the `.proto` and rebuild.
+
+Three properties this buys, none of which hand-managed codegen can offer:
+
+- **A version mismatch is not expressible.** A tool's version *is* its dependency's
+  version, so a `protoc` that disagrees with the protobuf runtime — a **runtime** failure,
+  and the nastiest thing about protobuf codegen — cannot happen. (Conan needed a
+  `<host_version>` placeholder to approximate this; protobuf's own CMake still has an open
+  issue where `Protobuf_PROTOC_EXECUTABLE` is ignored in CONFIG mode.)
+- **Incremental.** Generation is a ninja edge, so it re-runs when its `.proto` changes and
+  not otherwise.
+- **Cross-compilation is correct by construction.** Under `--target` the tools are still
+  built for the build machine, with no action from you.
+
+> `grpc-plugin` is a package of its own rather than a target inside `grpc`, because
+> upstream's plugin links `grpc_plugin_support` + protobuf and nothing else — a code
+> generator needs a `.proto` parser and a C++ emitter, not TLS, DNS and a regex engine.
+> See `.agents/docs/2026-08-05-codegen-ecosystem-design.md` §2.
 
 ## Platform support
 

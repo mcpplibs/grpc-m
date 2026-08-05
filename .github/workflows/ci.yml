@@ -8,7 +8,10 @@ on:
 env:
   # Keep in step with the mcpp-index CI pin: this package's dependencies are
   # index packages, and they are validated against that same mcpp.
-  MCPP_VERSION: "2026.8.3.3"
+  # 2026.8.5.1 is the FLOOR, not a routine pin: `tools = [...]` host tools and
+  # `mcpp:action=` build-graph nodes — what the codegen in templates/ and
+  # examples/ is built on — do not exist before it.
+  MCPP_VERSION: "2026.8.5.1"
 
 jobs:
   build:
@@ -78,6 +81,26 @@ jobs:
           MCPP_BUILD_CACHE: local
         run: |
           "$MCPP" run
+
+  plugin-version-matches:
+    name: grpc-plugin version == grpc version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The plugin generates code that calls gRPC internals, so a plugin built
+      # from a different release than the runtime being linked is exactly the
+      # mismatch this whole design exists to make impossible. They ship as two
+      # index entries from one tag, so nothing but a check keeps them equal.
+      - name: versions must match
+        shell: bash
+        run: |
+          lib=$(awk -F'"' '/^version/{print $2; exit}' mcpp.toml)
+          plug=$(awk -F'"' '/^version/{print $2; exit}' plugin/mcpp.toml)
+          echo "grpc=$lib  grpc-plugin=$plug"
+          if [ "$lib" != "$plug" ]; then
+            echo "FAIL: grpc-plugin version ($plug) must equal grpc version ($lib)"
+            exit 1
+          fi
 
   manifest-matches-upstream:
     name: source list == upstream CMakeLists

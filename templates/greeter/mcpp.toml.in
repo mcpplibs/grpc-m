@@ -1,23 +1,21 @@
 # {{project.name}} — generated from {{self.name}}@{{self.version}}:greeter
 #
-# gen/ holds protoc output, checked in so this project builds with nothing but
-# mcpp. After editing proto/helloworld.proto, regenerate with:
+# The protobuf/gRPC stubs are NOT checked in. They are generated during the
+# build by protoc and grpc_cpp_plugin, which mcpp builds for this machine out of
+# the same packages this project links against — so the generator and the
+# runtime cannot be different versions. Edit proto/helloworld.proto and build;
+# that is the whole workflow.
 #
-#   protoc -I proto --cpp_out=gen --grpc_out=gen \
-#          --plugin=protoc-gen-grpc=$(which grpc_cpp_plugin) \
-#          proto/helloworld.proto
-#
-# protoc must match the protobuf compat.protobuf pins (35.1 — upstream ships
-# prebuilt protoc for every platform) and grpc_cpp_plugin must come from the
-# same gRPC release as this dependency.
+# Under `mcpp build --target <triple>` both tools are still built for the BUILD
+# machine, because a code generator has to run here. You do not have to do
+# anything for that.
 [package]
 name        = "{{project.name}}"
 version     = "0.1.0"
 standard    = "c++23"
 
 [build]
-sources      = ["src/main.cpp", "gen/helloworld.pb.cc", "gen/helloworld.grpc.pb.cc"]
-include_dirs = ["gen"]
+sources = ["src/main.cpp"]
 
 [targets.{{project.name}}]
 kind = "bin"
@@ -25,3 +23,11 @@ main = "src/main.cpp"
 
 [dependencies.mcpplibs]
 {{self.name}} = "{{self.version}}"
+# The gRPC C++ codegen plugin — a package of its own rather than a target
+# inside gRPC, because a code generator needs a .proto parser and a C++
+# emitter, not TLS, DNS and a regex engine.
+grpc-plugin = { version = "{{self.version}}", tools = ["grpc_cpp_plugin"] }
+
+[dependencies.compat]
+# protoc, pinned to the same protobuf this project links.
+protobuf = { version = "35.1", tools = ["protoc"] }

@@ -74,17 +74,45 @@ class Greeter final : public helloworld::Greeter::Service {
 
 ## 代码生成
 
-gRPC 需要两个宿主工具 —— `protoc` 与 `grpc_cpp_plugin` —— 而 mcpp 没有把依赖的构建产物
-交给消费者的机制。因此模板与 `examples/helloworld` 里的生成产物是**签入**的:
+gRPC 需要两个宿主工具 —— `protoc` 与 `grpc_cpp_plugin` —— 自 **mcpp 2026.8.5.1** 起
+你不再需要自己准备它们。把它们声明在各自所属的依赖上,mcpp 会为你的机器构建出来:
 
-```bash
-protoc -I proto --cpp_out=gen --grpc_out=gen \
-       --plugin=protoc-gen-grpc=$(which grpc_cpp_plugin) \
-       proto/helloworld.proto
+```toml
+[dependencies]
+grpc            = "1.83.0"
+grpc-plugin     = { version = "1.83.0", tools = ["grpc_cpp_plugin"] }
+compat.protobuf = { version = "35.1",   tools = ["protoc"] }
 ```
 
-`protoc` 必须是 **35.1**(与 `compat.protobuf` 对齐,上游提供全平台预编译包),
-`grpc_cpp_plugin` 必须来自 **gRPC 1.83.0**。
+```cpp
+// build.mcpp —— 把生成声明成构建图的一条边
+mcpp::action gen;
+gen.role = "source";
+gen.arg(mcpp::dep_bin("protobuf", "protoc"))
+   .arg("--cpp_out=…").arg("--grpc_out=…")
+   .arg(std::string("--plugin=protoc-gen-grpc=") + mcpp::dep_bin("grpc-plugin", "grpc_cpp_plugin"))
+   .input("proto/helloworld.proto")
+   .output("…/helloworld.pb.cc").output("…/helloworld.grpc.pb.cc")
+   .submit();
+```
+
+`templates/greeter` 与 `examples/helloworld` 都是这么做的 —— **仓库里不再签入任何生成
+产物**。改 `.proto` 然后重新构建,就这样。
+
+由此得到三个手工管理 codegen 给不了的性质:
+
+- **版本错配不可表达。** 工具的版本**就是**那条依赖的版本,所以「protoc 与 protobuf
+  运行时对不上」——这是**运行期**才炸、也是 protobuf codegen 最难查的一类问题——
+  在语法上无法发生。(Conan 为了近似这一点专门引入了 `<host_version>` 占位符;
+  protobuf 自己的 CMake 至今有一个 open issue:CONFIG 模式下 `Protobuf_PROTOC_EXECUTABLE`
+  被忽略。)
+- **增量。** 生成是一条 ninja 边,`.proto` 变了才重跑,不变就不跑。
+- **交叉编译构造上就对。** `--target` 下工具依然为构建机器构建,你什么都不用做。
+
+> `grpc-plugin` 是独立的包而不是 `grpc` 里的一个 target,因为上游的插件只链
+> `grpc_plugin_support` + protobuf,别的都不链 —— 一个代码生成器需要的是 `.proto`
+> 解析器和 C++ 发射器,不是 TLS、DNS 和正则引擎。
+> 详见 `.agents/docs/2026-08-05-codegen-ecosystem-design.md` §2。
 
 ## 平台支持
 

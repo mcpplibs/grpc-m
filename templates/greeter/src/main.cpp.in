@@ -9,8 +9,8 @@
 // exercising the same stack the two-binary version does:
 //
 //   ServerBuilder / Server        -> src/cpp/server/**
-//   Greeter::Service (generated)  -> gen/helloworld.grpc.pb.cc
-//   HelloRequest / HelloReply     -> gen/helloworld.pb.cc  (protobuf runtime)
+//   Greeter::Service (generated)  -> helloworld.grpc.pb.cc  (generated at build time)
+//   HelloRequest / HelloReply     -> helloworld.pb.cc       (protobuf runtime)
 //   CreateChannel / Stub          -> src/cpp/client/**
 //   the wire itself               -> src/core/** (HTTP/2, transport, iomgr)
 //

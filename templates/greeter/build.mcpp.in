@@ -1,0 +1,70 @@
+// gRPC codegen, as build-graph nodes.
+//
+// The two tools come from the dependency graph — `mcpp::dep_bin()` reads the
+// path mcpp published after building them for THIS machine. Nothing here knows
+// or cares whether they were built from source, taken from the global store, or
+// pointed at by a `[tools.overrides]` escape hatch.
+//
+// The work is DECLARED, not done. Running protoc here would be the easy path
+// and the wrong one: it would re-run on every prepare, for every .proto at
+// once, serially, and a failure would surface as "build.mcpp exited 1".
+// Declared as an action it becomes an edge in the build graph — it re-runs
+// exactly when its .proto changes, in parallel with everything else, and a
+// failure is attributed to the edge that produced it.
+//
+// Design notes: mcpplibs/grpc-m,
+//   .agents/docs/2026-08-05-codegen-ecosystem-design.md
+#include <cstdio>
+#include <string>
+import mcpp;
+
+int main() {
+    const std::string root = mcpp::manifest_dir();
+    const std::string out  = mcpp::out_dir();
+
+    const char* protoc = mcpp::dep_bin("protobuf", "protoc");
+    const char* plugin = mcpp::dep_bin("grpc-plugin", "grpc_cpp_plugin");
+    if (!protoc || !*protoc) {
+        std::fprintf(stderr,
+            "no protoc: declare  compat.protobuf = { version = \"35.1\", "
+            "tools = [\"protoc\"] }\n");
+        return 1;
+    }
+    if (!plugin || !*plugin) {
+        std::fprintf(stderr,
+            "no grpc_cpp_plugin: declare  grpc-plugin = { ..., "
+            "tools = [\"grpc_cpp_plugin\"] }\n");
+        return 1;
+    }
+
+    const std::string proto = root + "/proto/helloworld.proto";
+
+    // ONE action, four declared outputs. protoc emits the message code and the
+    // service stubs in a single invocation, so splitting it would run protoc
+    // twice for no reason.
+    //
+    // The .pb.h / .grpc.pb.h are declared too: they must be PRODUCED by this
+    // edge (main.cpp and the generated .cc include them), but mcpp knows a
+    // header is not a translation unit and keeps them out of the compile set.
+    mcpp::action gen;
+    gen.id          = "protoc:helloworld";
+    gen.role        = "source";
+    gen.description = "protoc + grpc_cpp_plugin -> helloworld";
+    gen.arg(protoc)
+       .arg(("-I" + root + "/proto").c_str())
+       .arg(("--cpp_out=" + out).c_str())
+       .arg(("--grpc_out=" + out).c_str())
+       .arg((std::string("--plugin=protoc-gen-grpc=") + plugin).c_str())
+       .arg(proto.c_str())
+       .input(proto.c_str())
+       .output((out + "/helloworld.pb.cc").c_str())
+       .output((out + "/helloworld.pb.h").c_str())
+       .output((out + "/helloworld.grpc.pb.cc").c_str())
+       .output((out + "/helloworld.grpc.pb.h").c_str())
+       .submit();
+
+    // Where the generated headers live. PRIVATE to this package by design —
+    // an include dir a consumer must see belongs in the manifest, not in a
+    // build program.
+    mcpp::include_dir(out.c_str());
+}
