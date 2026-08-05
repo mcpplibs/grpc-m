@@ -237,7 +237,9 @@ Timestamp / Duration / Any，所以这不是边角情况 —— 它是**用户�
 | ✓ 工具进全局 store 并跨工程复用 | 二次构建不重建 |
 | 生成的桩子能编能跑 | **本地未验证** —— 本沙箱装不上 compat.openssl（gRPC 的硬依赖），由 CI 的 linux + macOS 两条腿验证 |
 | ✓ 改 `.proto` 触发重新生成 | 实测 1.38s vs 空转 0.02s；跨 proto import 也重跑 |
-| ✓ 规则包把 build.mcpp 降到 3 行 | 已用 protobuf-only 工程实测跑通全链路（生成→编译→链接→运行）；`examples/greeter` = 模板实例化，CI 构建它即测试模板 |
+| ✓ 规则包把 build.mcpp 降到 3 行 | `grpc = false` 路径全链路跑通（生成→编译→链接→运行）；`grpc = true` 路径四个产物齐全 |
+| ✓ **规则产出 ≡ 官方产出** | 规则生成的四个文件与官方 protoc 35.1 + 官方插件的产物**逐字节相同** |
+| ✓ 插件包必须等索引先合 | 未开 `protoc` feature 时链接期报 `undefined symbol: typeinfo for CodeGenerator` —— §4.1 的次序约束是实测的，不是推测 |
 
 ## 8. 明确不做
 
