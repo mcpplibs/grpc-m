@@ -95,8 +95,9 @@ import grpcgen;
 int main() { return grpcgen::generate({"helloworld"}) ? 0 : 1; }
 ```
 
-That is `templates/greeter`, and `mcpp new --template greeter` gives it to you ready to
-build. **No generated file is checked in any more** — edit the `.proto` and rebuild.
+That is `templates/greeter`, and `mcpp new --template grpc` gives it to you ready to
+build (`--template` takes the PACKAGE; spell the template out as `grpc:greeter` when a
+package ships more than one). **No generated file is checked in any more** — edit the `.proto` and rebuild.
 
 `grpcgen` is an ordinary mcpp package holding the rule, written in C++ and versioned
 alongside gRPC. Rules ship through the package manager you already have, so there is no

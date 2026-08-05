@@ -92,7 +92,8 @@ import grpcgen;
 int main() { return grpcgen::generate({"helloworld"}) ? 0 : 1; }
 ```
 
-这就是 `templates/greeter`,`mcpp new --template greeter` 直接给你一份能建的。
+这就是 `templates/greeter`,`mcpp new --template grpc` 直接给你一份能建的
+(`--template` 接的是**包名**;一个包带多个模板时写成 `grpc:greeter`)。
 **仓库里不再签入任何生成产物** —— 改 `.proto` 然后重新构建,就这样。
 
 `grpcgen` 是一个普通的 mcpp 包,里面装着那条规则,用 C++ 写、与 gRPC 同版本发布。
