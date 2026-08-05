@@ -24,10 +24,7 @@
 // have to do anything for that.
 //
 // See ../../.agents/docs/2026-08-05-codegen-ecosystem-design.md.
-#include <cstdio>
-#include <filesystem>
-#include <string>
-
+import std;
 import mcpp;
 
 // proto/<name>.proto
@@ -57,18 +54,20 @@ int main() {
     const char* protoc = mcpp::dep_bin("protobuf", "protoc");
     const char* plugin = mcpp::dep_bin("grpc-plugin", "grpc_cpp_plugin");
     if (!protoc || !*protoc || !plugin || !*plugin) {
-        std::fprintf(stderr,
+        // std::cerr, not the C `stderr`: `import std;` exports the namespace,
+        // and `stderr` is a <cstdio> MACRO that no module exports.
+        std::println(std::cerr,
             "missing a codegen tool. Both are declared in mcpp.toml:\n"
-            "  compat.protobuf = { version = \"35.1\", tools = [\"protoc\"] }\n"
-            "  grpc-plugin     = { version = \"...\",  tools = "
-            "[\"grpc_cpp_plugin\"] }\n");
+            "  compat.protobuf = {{ version = \"35.1\", tools = [\"protoc\"] }}\n"
+            "  grpc-plugin     = {{ version = \"...\",  tools = "
+            "[\"grpc_cpp_plugin\"] }}");
         return 1;
     }
 
     const std::string wkt = well_known_types_dir();
     if (wkt.empty()) {
-        std::fprintf(stderr, "no well-known .proto files in the protobuf "
-                             "package\n");
+        std::println(std::cerr,
+            "no well-known .proto files in the protobuf package");
         return 1;
     }
 
