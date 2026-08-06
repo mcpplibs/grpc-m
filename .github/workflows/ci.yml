@@ -127,6 +127,15 @@ jobs:
           # The shared tree was generated, not just searched.
           test -f target/.build-mcpp/out/common/types.pb.cc \
             || { echo "shared-proto was not generated"; exit 1; }
+          # The edge describes ITSELF. This is the rule's half of observability
+          # — mcpp already puts the full argv in build.ninja, so what the rule
+          # owns is "which knobs produced it", and that string is what every
+          # build prints. Asserting it keeps the two from drifting apart.
+          nj=$(find target -name build.ninja | head -1)
+          grep -q 'description = GENERATE protoc:orders (+grpc +mock,' "$nj" \
+            || { echo "edge description does not describe its knobs:";
+                 grep -o 'description = GENERATE protoc:.*' "$nj"; exit 1; }
+          grep -o 'description = GENERATE protoc:.*' "$nj"
 
   package-versions-match:
     name: all three packages share one version
