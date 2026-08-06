@@ -8,13 +8,18 @@ on:
 env:
   # Keep in step with the mcpp-index CI pin: this package's dependencies are
   # index packages, and they are validated against that same mcpp.
-  # 2026.8.5.2 is the FLOOR, not a routine pin. Three things the codegen in
+  # 2026.8.6.2 is the FLOOR, not a routine pin. Four things the codegen in
   # templates/ and examples/ is built on do not exist before it:
   #   2026.8.5.1  `tools = [...]` host tools; `mcpp:action=` build-graph nodes
   #   2026.8.5.2  a `host-module = true` rule package may use `import std;` and
   #               `import mcpp;` — rules/ needs both, and before .5.2 it failed
   #               with `module 'std' not found` / `module 'mcpp' not found`
-  MCPP_VERSION: "2026.8.5.2"
+  #   2026.8.6.2  `reexport = true`, which is what lets THIS package hand its
+  #               user the whole codegen toolchain — one dependency, not four —
+  #               and `rerun_if_changed_glob`, without which generate_all()
+  #               would not re-run when a .proto is ADDED (no declared file's
+  #               hash changes), silently never generating it
+  MCPP_VERSION: "2026.8.6.2"
 
 jobs:
   build:

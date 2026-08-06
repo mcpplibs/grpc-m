@@ -75,22 +75,23 @@ class Greeter final : public helloworld::Greeter::Service {
 ## 代码生成
 
 gRPC 需要两个宿主工具 —— `protoc` 与 `grpc_cpp_plugin` —— 自 **mcpp 2026.8.5.1** 起
-你不再需要自己准备它们。把它们声明在各自所属的依赖上、再加上 codegen 规则,配置就完了:
+你不再需要自己准备它们,也不需要知道它们是谁:
 
 ```toml
-[dependencies]
-grpc.grpc        = "1.83.0"
-grpc.grpc-plugin = { version = "1.83.0", tools = ["grpc_cpp_plugin"] }
-grpcgen          = { version = "1.83.0", host-module = true }
-compat.protobuf  = { version = "35.1",   tools = ["protoc"] }
+[dependencies.grpc]
+grpc = { version = "1.83.0", features = ["codegen"] }
 ```
 
 ```cpp
 // build.mcpp —— 全文如此
 import mcpp;
 import grpcgen;
-int main() { return grpcgen::generate({"helloworld"}) ? 0 : 1; }
+int main() { return grpcgen::generate_all() ? 0 : 1; }
 ```
+
+一条依赖,一行代码。gRPC 的代码生成需要哪些工具 —— protoc、C++ 插件、驱动它们
+的那条规则 —— 是**这个包**的知识,`features = ["codegen"]` 就是它说出这件事的
+地方。新增一个 `.proto` 只是往 `proto/` 里放一个文件,没有需要同步维护的清单。
 
 这就是 `templates/greeter`,`mcpp new --template grpc` 直接给你一份能建的
 (`--template` 接的是**包名**;一个包带多个模板时写成 `grpc:greeter`)。
@@ -98,7 +99,7 @@ int main() { return grpcgen::generate({"helloworld"}) ? 0 : 1; }
 
 `grpcgen` 是一个普通的 mcpp 包,里面装着那条规则,用 C++ 写、与 gRPC 同版本发布。
 规则走你已经在用的包管理器分发,所以这里**没有第二门语言** —— 不像 xmake 用 Lua rule、
-Bazel 用 Starlark。它需要 **mcpp 2026.8.5.2**:规则包是从那一版起才真正能用
+Bazel 用 Starlark。它需要 **mcpp 2026.8.6.2**;2026.8.5.2 是规则包从那一版起才真正能用
 `import std;` 与 `import mcpp;` 的。
 
 两个示例,是刻意的:

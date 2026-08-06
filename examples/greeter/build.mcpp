@@ -1,6 +1,6 @@
-// gRPC codegen.
+// gRPC codegen — every .proto under proto/, without naming any of them.
 //
-// To add a .proto: drop it in proto/ and add its name below.
+// To add a .proto: drop it in proto/ and build. Nothing here changes.
 //
 // The rule lives in the `grpcgen` package rather than in this file, so it is
 // versioned, tested and fixed in one place instead of copy-pasted into every
@@ -18,5 +18,5 @@ import mcpp;
 import grpcgen;
 
 int main() {
-    return grpcgen::generate({"helloworld"}) ? 0 : 1;
+    return grpcgen::generate_all() ? 0 : 1;
 }

@@ -21,25 +21,12 @@ sources = ["src/main.cpp"]
 kind = "bin"
 main = "src/main.cpp"
 
-# The `grpc` namespace, because both of these are UPSTREAM gRPC code — the
-# runtime and, below, the codegen plugin's src/compiler/* sources. A namespace
-# names whose library it is, not who packaged it.
+# One dependency, and it is the library you actually use.
+#
+# `features = ["codegen"]` is what pulls in protoc, the gRPC C++ plugin and the
+# `grpcgen` rule that drives them — which tools gRPC codegen needs is the gRPC
+# package's knowledge, not yours. The `grpc` namespace, because this is
+# UPSTREAM gRPC code: a namespace names whose library it is, not who packaged
+# it.
 [dependencies.grpc]
-{{self.name}} = "{{self.version}}"
-# The gRPC C++ codegen plugin — a package of its own rather than a target
-# inside gRPC, because a code generator needs a .proto parser and a C++
-# emitter, not TLS, DNS and a regex engine.
-grpc-plugin = { version = "{{self.version}}", tools = ["grpc_cpp_plugin"] }
-
-# grpcgen is NOT upstream — it is the codegen rule this repository wrote, so it
-# lives in mcpplibs (which is also mcpp's default namespace, hence no prefix
-# needed when writing it).
-[dependencies.mcpplibs]
-# The codegen RULE. `host-module = true` makes its module importable from
-# build.mcpp, which is why build.mcpp is three lines instead of sixty. It is
-# build-time only — not compiled into or linked with this project.
-grpcgen = { version = "{{self.version}}", host-module = true }
-
-[dependencies.compat]
-# protoc, pinned to the same protobuf this project links.
-protobuf = { version = "35.1", tools = ["protoc"] }
+{{self.name}} = { version = "{{self.version}}", features = ["codegen"] }

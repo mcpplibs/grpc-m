@@ -1,9 +1,19 @@
 # greeter — what `mcpp new --template greeter` produces.
 #
 # This example exists to keep the TEMPLATE honest: it is the template
-# instantiated, so CI building it is CI testing what users are handed. The only
-# deliberate difference is that the three grpc-m packages are taken by `path`
-# rather than from the index, so the example tests the working tree.
+# instantiated, so CI building it is CI testing what users are handed. Two
+# deliberate differences:
+#
+#   * the three grpc-m packages are taken by `path` rather than from the index,
+#     so the example tests the WORKING TREE;
+#   * consequently it cannot use the template's one-line
+#     `features = ["codegen"]` form. That feature's [feature-deps] name index
+#     VERSIONS of grpc-plugin and grpcgen, which is right for a released
+#     package and wrong for testing an unreleased working tree. The one-line
+#     form is verified against the published index instead.
+#
+# What this example does share with the template is `generate_all()`: the rule
+# discovers every .proto under proto/ rather than being handed a list.
 #
 # The sibling examples/helloworld does the same job with a hand-written
 # build.mcpp instead of the rule package — that one demonstrates the mechanism,
