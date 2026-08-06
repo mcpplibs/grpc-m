@@ -1134,6 +1134,39 @@ sources = [
 [feature-deps.ares]
 compat.c-ares = "1.34.5"
 
+# ── codegen ──────────────────────────────────────────────────────────────────
+# Turning it on gives the consumer the whole toolchain — protoc, the
+# gRPC C++ plugin, and the rule that drives them — so its mcpp.toml says
+#
+#   grpc = { version = "1.83.0", features = ["codegen"] }
+#
+# and its build.mcpp says `grpcgen::generate_all()`. Nothing else. Which tools
+# gRPC codegen needs is this package's knowledge, not its user's; before
+# `reexport` existed the user had to write all four dependencies and know that
+# gRPC codegen runs protobuf's protoc.
+#
+# Off by default because the cost is real: protoc drags in libprotoc's ~157
+# extra TUs, and a project that only LINKS gRPC must not pay for them.
+#
+# Requires mcpp 2026.8.6.2+ (`reexport`). On an older mcpp the key parses as an
+# unknown dep-spec key and the toolchain simply does not reach the consumer.
+#
+# The feature is registered by this table alone — a feature that only pulls
+# dependencies needs no [features.<name>] section.
+[feature-deps.codegen]
+# protoc, pinned to the protobuf this package already depends on above — the
+# single version axis is why "the generator does not match the runtime" is not
+# expressible here. `tools` and `reexport` are ADDED to that existing edge;
+# they are not a second, conflicting declaration of protobuf.
+compat.protobuf   = { version = "35.1", tools = ["protoc"], reexport = true }
+# The gRPC C++ codegen plugin — a package of its own rather than a target
+# inside gRPC, because a code generator needs a .proto parser and a C++
+# emitter, not TLS, DNS and a regex engine.
+grpc.grpc-plugin  = { version = "1.83.0", tools = ["grpc_cpp_plugin"], reexport = true }
+# The rule itself, as an importable host module. Not upstream code, so it
+# lives in mcpplibs rather than in the grpc namespace.
+mcpplibs.grpcgen  = { version = "1.83.0", host-module = true, reexport = true }
+
 [target.'cfg(windows)'.build]
 cxxflags = [
     # Upstream's own MSVC set (CMakeLists.txt add_definitions under if(MSVC)).

@@ -81,19 +81,21 @@ you no longer supply them yourself. Declare them on the dependencies they belong
 the codegen rule, and that is the entire setup:
 
 ```toml
-[dependencies]
-grpc.grpc        = "1.83.0"
-grpc.grpc-plugin = { version = "1.83.0", tools = ["grpc_cpp_plugin"] }
-grpcgen          = { version = "1.83.0", host-module = true }
-compat.protobuf  = { version = "35.1",   tools = ["protoc"] }
+[dependencies.grpc]
+grpc = { version = "1.83.0", features = ["codegen"] }
 ```
 
 ```cpp
 // build.mcpp — in full
 import mcpp;
 import grpcgen;
-int main() { return grpcgen::generate({"helloworld"}) ? 0 : 1; }
+int main() { return grpcgen::generate_all() ? 0 : 1; }
 ```
+
+One dependency and one line. Which tools gRPC codegen needs — protoc, the C++
+plugin, the rule that drives them — is this package's knowledge, and
+`features = ["codegen"]` is where it says so. Adding a `.proto` means dropping
+a file in `proto/`; there is no list to keep in sync.
 
 That is `templates/greeter`, and `mcpp new --template grpc` gives it to you ready to
 build (`--template` takes the PACKAGE; spell the template out as `grpc:greeter` when a
@@ -102,7 +104,7 @@ package ships more than one). **No generated file is checked in any more** — e
 `grpcgen` is an ordinary mcpp package holding the rule, written in C++ and versioned
 alongside gRPC. Rules ship through the package manager you already have, so there is no
 second language here the way xmake has Lua rules and Bazel has Starlark. It needs
-**mcpp 2026.8.5.2**, which is where a rule package first became able to use `import std;`
+**mcpp 2026.8.6.2** — 2026.8.5.2 is where a rule package first became able to use `import std;`
 and `import mcpp;`.
 
 Two examples, on purpose:

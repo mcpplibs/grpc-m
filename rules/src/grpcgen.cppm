@@ -11,7 +11,8 @@
 // what lets this file use `import mcpp;` — the typed wrapper over the `mcpp:`
 // directive protocol — rather than hand-printing JSON.
 //
-// Requires mcpp >= 2026.8.5.2. Both of those properties are fixes in that
+// Requires mcpp >= 2026.8.6.2 for generate_all() (see there) and >= 2026.8.5.2
+// for everything else. Both of those properties are fixes in that
 // release: before it, a rule was compiled before the std module existed
 // (`module 'std' not found`) and was ALSO compiled as an ordinary library of
 // the consumer, where the `mcpp` module does not exist.
@@ -61,7 +62,7 @@ struct options {
 //
 // Returns false after printing a diagnostic; a build program should propagate
 // that as a non-zero exit.
-bool generate(std::initializer_list<const char*> protos, options opt = {}) {
+bool generate(std::vector<std::string> protos, options opt = {}) {
     const std::string root = mcpp::manifest_dir();
     const std::string out  = mcpp::out_dir();
     if (root.empty() || out.empty()) {
@@ -69,7 +70,7 @@ bool generate(std::initializer_list<const char*> protos, options opt = {}) {
             "grpcgen: no mcpp build context — this runs from build.mcpp");
         return false;
     }
-    if (protos.size() == 0) {
+    if (protos.empty()) {
         std::println(std::cerr, "grpcgen::generate() called with no .proto files");
         return false;
     }
@@ -111,10 +112,10 @@ bool generate(std::initializer_list<const char*> protos, options opt = {}) {
     // too eagerly is far better than silently stale stubs.
     std::vector<std::string> inputs;
     inputs.reserve(protos.size());
-    for (const char* n : protos)
+    for (const auto& n : protos)
         inputs.push_back(std::format("{}/{}.proto", protoDir, n));
 
-    for (const char* name : protos) {
+    for (const auto& name : protos) {
         const std::string src  = std::format("{}/{}.proto", protoDir, name);
         const std::string base = std::format("{}/{}", out, name);
 
@@ -146,6 +147,15 @@ bool generate(std::initializer_list<const char*> protos, options opt = {}) {
 
         for (const auto& in : inputs) gen.input(in.c_str());
 
+        // protoc mirrors the .proto's relative path under --cpp_out and does
+        // NOT create the intermediate directories. A flat proto/ never notices;
+        // proto/sub/x.proto fails with "No such file or directory" from inside
+        // protoc, which reads as a codegen bug rather than a missing mkdir.
+        {
+            std::error_code mkec;
+            std::filesystem::create_directories(
+                std::filesystem::path(base).parent_path(), mkec);
+        }
         const std::string pbcc = base + ".pb.cc", pbh = base + ".pb.h";
         gen.output(pbcc.c_str()).output(pbh.c_str());
         const std::string gcc_ = base + ".grpc.pb.cc", gh = base + ".grpc.pb.h";
@@ -158,6 +168,57 @@ bool generate(std::initializer_list<const char*> protos, options opt = {}) {
     // in its manifest, not in a build program.
     mcpp::include_dir(out.c_str());
     return true;
+}
+
+// Every .proto under `opt.proto_dir`, without naming any of them.
+//
+// This is the form the greeter template uses, and it is only SAFE because the
+// engine can express "my output depends on which files are here"
+// (`rerun_if_changed_glob`, mcpp 2026.8.6.2+). Before that, a build program
+// that globbed did not re-run when a .proto was added — no declared file's
+// hash had changed — so the new file was silently never generated, which is
+// worse than making the author list names. That is why this repository shipped
+// the explicit list first.
+//
+// Names are relative to `opt.proto_dir` and keep their subdirectory, so
+// proto/sub/x.proto generates sub/x.pb.cc and is imported as "sub/x.proto".
+bool generate_all(options opt = {}) {
+    namespace fs = std::filesystem;
+    const std::string root = mcpp::manifest_dir();
+    if (root.empty()) {
+        std::println(std::cerr,
+            "grpcgen: no mcpp build context — this runs from build.mcpp");
+        return false;
+    }
+    const std::string pattern = std::string(opt.proto_dir) + "/**/*.proto";
+    mcpp::rerun_if_changed_glob(pattern.c_str());
+
+    const fs::path dir = fs::path(root) / opt.proto_dir;
+    std::error_code ec;
+    if (!fs::exists(dir, ec)) {
+        std::println(std::cerr,
+            "grpcgen::generate_all(): no '{}' directory under {}",
+            opt.proto_dir, root);
+        return false;
+    }
+    std::vector<std::string> names;
+    for (auto const& e : fs::recursive_directory_iterator(dir, ec)) {
+        if (ec) break;
+        if (!e.is_regular_file(ec)) continue;
+        if (e.path().extension() != ".proto") continue;
+        auto rel = e.path().lexically_relative(dir);
+        rel.replace_extension();
+        names.push_back(rel.generic_string());
+    }
+    if (names.empty()) {
+        std::println(std::cerr,
+            "grpcgen::generate_all(): no .proto files under {}", dir.string());
+        return false;
+    }
+    // Sorted so the declared edge set is stable run to run — an unstable order
+    // would churn build.ninja for no reason.
+    std::ranges::sort(names);
+    return generate(std::move(names), opt);
 }
 
 }  // namespace grpcgen
