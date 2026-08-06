@@ -5,7 +5,7 @@
 > .5.2 才让 `host-module = true` 规则包真正可用 —— 规则里能 `import std;` 与 `import mcpp;`）
 > 涉及：本仓库的 `plugin/`（新）、`rules/`（新）、`templates/`、`examples/`、
 > `.github/workflows/ci.yml`；`mcpp-index` 的 `compat.protobuf` 与新条目
-> `mcpplibs.grpc-plugin` / `mcpplibs.grpcgen`
+> `grpc:grpc-plugin` / `mcpplibs:grpcgen`
 
 ---
 
@@ -143,9 +143,9 @@ features = {
 3. **`main` 要写成 `*/src/...`**：Form B 包的源码在版本目录下的包装目录里，`*` 代表
    tarball 顶层文件夹名。mcpp 2026.8.5.1 起 `main` 会像 `sources` 一样展开这个 glob。
 
-### 4.2 新条目 `mcpplibs.grpc-plugin`
+### 4.2 新条目 `grpc:grpc-plugin`
 
-与 `mcpplibs.grpc` 同一个仓库、同一个 tag，Form A（自带 `plugin/mcpp.toml`）。
+与 `grpc:grpc` 同一个仓库、同一个 tag，Form A（自带 `plugin/mcpp.toml`）。
 平台覆盖是 **linux/macos/windows** —— 它只需要 libprotoc，**不受 compat.openssl 的
 windows 缺口限制**（主包受）。
 
@@ -209,11 +209,21 @@ Timestamp / Duration / Any，所以这不是边角情况 —— 它是**用户�
 
 ### 5.3 三个包，一个 tag
 
-| 包 | 是什么 | 消费者怎么写 |
-|---|---|---|
-| `mcpplibs.grpc` | gRPC 运行时 | `grpc = "1.83.0"` |
-| `mcpplibs.grpc-plugin` | `grpc_cpp_plugin`（codegen 工具） | `{ version = "1.83.0", tools = ["grpc_cpp_plugin"] }` |
-| `mcpplibs.grpcgen` | 构建规则（host module） | `{ version = "1.83.0", host-module = true }` |
+| 包 | 代码是谁的 | 是什么 | 消费者怎么写 |
+|---|---|---|---|
+| `grpc:grpc` | 上游 grpc/grpc | gRPC 运行时 | `grpc.grpc = "1.83.0"` |
+| `grpc:grpc-plugin` | 上游 `src/compiler/*` | `grpc_cpp_plugin`（codegen 工具） | `grpc.grpc-plugin = { version = "1.83.0", tools = ["grpc_cpp_plugin"] }` |
+| `mcpplibs:grpcgen` | **本仓库自己写的** | 构建规则（host module） | `grpcgen = { version = "1.83.0", host-module = true }` |
+
+**命名空间说的是这个库是谁的,不是谁打的包。** gRPC 运行时与 codegen 插件都是上游
+代码（`Copyright gRPC authors`），所以归 `grpc`；`grpcgen` 是本仓库写的 163 行规则，
+归 `mcpplibs`。索引里 `nlohmann.json` / `fmtlib.fmt` / `chriskohlhoff.asio` /
+`godotengine.godot-cpp-m` 早就是这个口径。
+
+代价是裸名够不到：`dep_spec.cppm` 的裸名梯级写死为 `(mcpplibs, X) → (compat, X) →
+(∅, X)`，而 `kDefaultNamespace = "mcpplibs"`。所以运行时与插件必须写限定形式，
+`grpcgen` 因为留在默认命名空间仍可裸写。这不是损失 —— 限定名把「这是谁的库」写进了
+依赖声明本身。
 
 三者同 tag、同版本号，CI 的 `package-versions-match` 机器校验 —— 版本漂开正是本
 方案要消灭的那类错配。

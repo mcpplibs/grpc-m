@@ -32,11 +32,11 @@ Greeter replied: Hello mcpp
 Or add it to an existing project:
 
 ```bash
-mcpp add grpc
+mcpp add grpc.grpc
 ```
 
 ```toml
-[dependencies.mcpplibs]
+[dependencies.grpc]
 grpc = "1.83.0"
 ```
 
@@ -82,10 +82,10 @@ the codegen rule, and that is the entire setup:
 
 ```toml
 [dependencies]
-grpc            = "1.83.0"
-grpc-plugin     = { version = "1.83.0", tools = ["grpc_cpp_plugin"] }
-grpcgen         = { version = "1.83.0", host-module = true }
-compat.protobuf = { version = "35.1",   tools = ["protoc"] }
+grpc.grpc        = "1.83.0"
+grpc.grpc-plugin = { version = "1.83.0", tools = ["grpc_cpp_plugin"] }
+grpcgen          = { version = "1.83.0", host-module = true }
+compat.protobuf  = { version = "35.1",   tools = ["protoc"] }
 ```
 
 ```cpp
@@ -145,7 +145,7 @@ the day that entry lands.
 | `ares` | **on** | The c-ares asynchronous DNS resolver, matching upstream gRPC. Turn it off with `default-features = false`: 7 TUs and the `compat.c-ares` dependency drop out and `GRPC_ARES=0` is defined, so gRPC uses its native resolver — upstream's own `grpc_no_ares=true` configuration. |
 
 ```toml
-[dependencies.mcpplibs]
+[dependencies.grpc]
 grpc = { version = "1.83.0", default-features = false }   # no c-ares
 ```
 
