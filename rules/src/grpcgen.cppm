@@ -226,11 +226,19 @@ std::string describe(const std::string& name,
 // "helloworld" means <proto_dir>/helloworld.proto.
 //
 // Returns an empty vector after printing a diagnostic.
-// One planned .proto: which generation ROOT it came from, and its name
-// relative to that root. Two roots can contribute files with the same relative
-// name only if the author arranged it, exactly as with protoc's own -I list.
+// ── L3, bottom: a .proto addressed by (root, name) ─────────────────────────
+//
+// `plan()` and `plan_all()` both funnel here. It is public because it is the
+// only form that can express a .proto living somewhere neither `proto_dir` nor
+// `extra_dirs` covers — without it, such a project would be back to writing
+// its own build.mcpp, which is the cliff this whole design exists to remove.
+//
+// `name` is relative to `root` and decides the OUTPUT path, so two roots may
+// contribute the same relative name only if the author meant it — exactly the
+// property protoc's own -I list has.
 struct entry { std::string root, name; };
 
+// Plan edges for .proto files given as explicit (root, name) pairs.
 std::vector<edge> plan_entries(std::vector<entry> protos, options opt = {}) {
     const std::string root = mcpp::manifest_dir();
     const std::string out  = mcpp::out_dir();

@@ -130,6 +130,20 @@ protoc:echo (+grpc +mock, -I proto -I ../shared/proto)
 
 2. **为什么默认关闭。** 现在只写了成本(protoc 拖进 libprotoc 约 157 个 TU),没写**真实存在的无 codegen 路径**:gRPC 官方的 Generic API(`grpc::GenericStub` + `grpc::ByteBuffer`,自己序列化)。官方性能文档明确推荐它用于高竞争或 proto 序列化 CPU 密集的场景——代理、负载均衡这类转发型服务走的就是这条路。也就是说 off-by-default 不是「省点编译时间」,是**存在一整类项目确实不需要它**。
 
+## 7.5 实施中长出来的两条(设计里没有)
+
+**`extra_dirs`。** 原设计只有 `.imports`(额外 `-I`)。写 `examples/advanced` 时撞出来:protoc 会把 `#include "common/types.pb.h"` 写进任何 import 了它的文件,所以**只靠 `-I` 够到的共享树会产出一个没人生成的头**,报错(`fatal error: 'common/types.pb.h' file not found`)离原因很远。两个概念因此必须分开:`extra_dirs` 既生成又搜索,`imports` 只搜索。
+
+这条是示例发现的,不是设计发现的——一个只写文档不写示例的设计会把它漏掉。
+
+**`plan_entries` / `entry`。** L3 的真正底层:`.proto` 按 `(root, name)` 寻址。`plan()` 与 `plan_all()` 都汇入它。它必须是公开的,因为那是「`.proto` 既不在 `proto_dir` 也不在 `extra_dirs` 下」这种项目的唯一出路——否则它们又回到自己写 build.mcpp,而那正是本设计要消掉的断崖。
+
+## 7.6 一个生态限制,如实记录
+
+`.mock` 让 protoc 产出 `<stem>_mock.grpc.pb.h`,而那个头 `#include <gmock/gmock.h>` —— 本生态的 `compat.gtest` **只带 googletest、不带 gmock**。所以旋钮是对的、产物也真的生成,但**当前无法编译它**。
+
+`examples/advanced` 因此声明并产出 mock 头、但不 include;plan 阶段断言它进了输出集,CI 再断言文件真的存在。补 gmock 是 mcpp-index 的事,与本规则无关。
+
 ## 8. 实施顺序
 
 | 步 | 内容 | 风险 |
