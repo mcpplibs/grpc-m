@@ -105,6 +105,29 @@ jobs:
         run: |
           "$MCPP" run
 
+      # The layered knobs, in the shape a real project hits first: a shared
+      # .proto tree that must be GENERATED (not merely searched), gRPC's mock
+      # generation, and plan/submit with an assertion in between. greeter
+      # covers L0; without this one, everything past the two original options
+      # is untested.
+      - name: advanced example — extra_dirs + mock + plan/submit
+        shell: bash
+        working-directory: examples/advanced
+        env:
+          MCPP_INDEX_MIRROR: GLOBAL
+          MCPP_BUILD_CACHE: local
+        run: |
+          "$MCPP" run
+          # The mock header is declared by the edge and produced by protoc;
+          # nothing includes it (no gmock in this ecosystem), so assert the
+          # file itself rather than trusting the plan-time check alone.
+          out=$(find target/.build-mcpp/out -name 'orders_mock.grpc.pb.h' | head -1)
+          test -n "$out" || { echo "no mock header produced"; exit 1; }
+          echo "mock header: $out"
+          # The shared tree was generated, not just searched.
+          test -f target/.build-mcpp/out/common/types.pb.cc \
+            || { echo "shared-proto was not generated"; exit 1; }
+
   package-versions-match:
     name: all three packages share one version
     runs-on: ubuntu-latest

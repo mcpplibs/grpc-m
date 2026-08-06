@@ -107,12 +107,54 @@ second language here the way xmake has Lua rules and Bazel has Starlark. It need
 **mcpp 2026.8.6.2** — 2026.8.5.2 is where a rule package first became able to use `import std;`
 and `import mcpp;`.
 
-Two examples, on purpose:
+## When you need more control
+
+Past `generate_all()` there is no cliff — each layer is the next one's
+**defaults, not another road**: `generate_all(opt)` *is* `submit(plan_all(opt))`,
+and `.grpc = true` *is* `.plugins = {cpp()}`.
+
+```cpp
+// L1 — declarative knobs
+grpcgen::generate_all({
+    .extra_dirs  = {"../shared-proto"},   // shared .proto tree, generated too
+    .imports     = {"/opt/googleapis"},   // search only, not generated
+    .mock        = true,                  // gRPC's generate_mock_code=true
+    .protoc_args = {"--experimental_allow_proto3_optional"},
+});
+
+// L2 — the plugin list; `.grpc = true` is sugar for "cpp() is in it"
+grpcgen::generate_all({ .plugins = { grpcgen::cpp(), my_plugin } });
+
+// L3 — plan / submit: no requirement is exotic enough to need bypassing the rule
+auto edges = grpcgen::plan_all();
+for (auto& e : edges) e.arg("--whatever");
+grpcgen::submit(edges);
+```
+
+`extra_dirs` vs `imports` is not a pedantic distinction: protoc writes
+`#include "common/types.pb.h"` into every file that imports that .proto, so a
+shared tree reached only through `-I` yields a header **nobody produced**, and
+the failure surfaces far from its cause. Use `extra_dirs` when that code is
+yours to build; `imports` when it comes from somewhere you already link.
+
+**Observability, and whose job it is**: mcpp writes each edge's full argv into
+`build.ninja` — `ninja -t commands <output>` recovers it, and the rule does not
+duplicate that. What the rule owns is *which knobs* produced the command, and it
+puts that in the description every build prints:
+
+```
+GENERATE protoc:orders (+grpc +mock, -Iproto -I../shared-proto)
+```
+
+`examples/advanced` covers L1 + L3.
+
+Three examples, on purpose:
 
 | | |
 |---|---|
 | `examples/greeter` | the template instantiated — 3-line `build.mcpp` via `grpcgen` |
 | `examples/helloworld` | the same program with the rule written out by hand, so the mechanism stays legible |
+| `examples/advanced` | the layered knobs: a shared .proto tree generated across roots, gRPC mocks, and plan/submit with an assertion in between |
 
 Three properties this buys, none of which hand-managed codegen can offer:
 

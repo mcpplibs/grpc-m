@@ -1,0 +1,57 @@
+// L1 + L3 in one program.
+//
+// L1 — two knobs a real project hits early:
+//   .extra_dirs  orders.proto imports common/types.proto from a SHARED tree.
+//                Listed here rather than in .imports because its generated
+//                code is ours to build too: protoc emits
+//                `#include "common/types.pb.h"` into orders.pb.h, so a root
+//                reached only by `-I` yields a header nobody produced.
+//   .mock        gRPC's own generate_mock_code=true. A PLUGIN parameter, not a
+//                protoc flag — the kind of spelling a consumer should not have
+//                to know.
+//
+// L3 — plan, look, submit. Nothing here is a different code path:
+// `generate_all(opt)` IS `submit(plan_all(opt))`. The point of splitting it is
+// that a project with a need the rule does not model keeps everything the rule
+// already solved (well-known types, output subdirectories, the input set)
+// instead of hand-writing a build.mcpp that reimplements them and then drifts.
+import std;
+import mcpp;
+import grpcgen;
+
+int main() {
+    auto edges = grpcgen::plan_all({
+        .extra_dirs = {"../shared-proto"},
+        .mock       = true,
+    });
+    if (edges.empty()) return 1;
+
+    // Assert the mock output was DECLARED. Deliberately not `#include`d by
+    // src/main.cpp: the generated mock header pulls in <gmock/gmock.h>, and
+    // this ecosystem's compat.gtest ships googletest without gmock. Declaring
+    // it still proves the parameter reached the plugin — protoc must produce
+    // the file, since it is an output of the edge.
+    bool sawMock = false;
+    for (const auto& e : edges)
+        for (const auto& o : e.outputs)
+            if (o.ends_with("_mock.grpc.pb.h")) sawMock = true;
+    if (!sawMock) {
+        std::println(std::cerr,
+            "advanced: .mock did not reach the plugin — no *_mock.grpc.pb.h "
+            "among the planned outputs");
+        return 1;
+    }
+
+    // The shared tree is generated too, not merely searched.
+    bool sawShared = false;
+    for (const auto& e : edges)
+        if (e.id == "protoc:common/types") sawShared = true;
+    if (!sawShared) {
+        std::println(std::cerr,
+            "advanced: .extra_dirs did not become a generation root — no edge "
+            "for common/types");
+        return 1;
+    }
+
+    return grpcgen::submit(edges) ? 0 : 1;
+}
