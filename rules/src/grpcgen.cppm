@@ -208,10 +208,14 @@ std::string describe(const std::string& name,
     // the part worth reading. Rendered relative to the manifest so the string
     // matches what was written in build.mcpp.
     for (const auto& i : userIncs) {
-        // `..`-relative is kept: it is what the author wrote in build.mcpp,
-        // and it is far shorter than the store path it would otherwise print.
+        // Prefer the relative form — it is usually what the author wrote — but
+        // only while it stays readable. `lexically_relative` SUCCEEDS for a
+        // path far from the manifest and returns a chain of `..` longer than
+        // the absolute path it replaced; guarding only on "could not compute"
+        // misses that case entirely.
         auto rel = std::filesystem::path(i).lexically_relative(root);
-        auto shown = rel.empty() ? i : rel.generic_string();
+        auto r = rel.generic_string();
+        auto shown = (r.empty() || r.starts_with("../..")) ? i : r;
         s += (i == userIncs.front() ? ", -I" : " -I") + shown;
     }
     s += ")";
