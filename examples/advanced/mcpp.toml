@@ -1,0 +1,37 @@
+# advanced — the layered knobs, in the one shape a real project hits first.
+#
+# examples/greeter is L0: `generate_all()`, nothing else. This one is L1:
+#
+#   * `.imports` — orders.proto imports common/types.proto, which lives in a
+#     SHARED directory outside this project. Cross-repo .proto is the normal
+#     state once there is more than one service, and `google/api/annotations
+#     .proto` reaches every project that exposes an HTTP gateway.
+#   * `.mock` — gRPC's own generator emits MockOrdersStub for unit tests. It is
+#     a PLUGIN parameter (`--grpc_out=generate_mock_code=true:<dir>`), not a
+#     protoc flag, which is exactly the spelling a consumer should not have to
+#     know.
+#
+# Both are additive: dropping them gives byte-identical output to greeter's.
+#
+# Path dependencies, like greeter — this example tests the working tree.
+[package]
+name        = "advanced"
+version     = "0.1.0"
+standard    = "c++23"
+
+[build]
+sources = ["src/main.cpp"]
+
+[targets.advanced]
+kind = "bin"
+main = "src/main.cpp"
+
+[dependencies]
+grpc        = { path = "../.." }
+grpc-plugin = { path = "../../plugin", tools = ["grpc_cpp_plugin"] }
+
+[dependencies.mcpplibs]
+grpcgen = { path = "../../rules", host-module = true }
+
+[dependencies.compat]
+protobuf = { version = "35.1", tools = ["protoc"] }

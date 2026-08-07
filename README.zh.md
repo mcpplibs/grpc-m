@@ -102,12 +102,52 @@ int main() { return grpcgen::generate_all() ? 0 : 1; }
 Bazel 用 Starlark。它需要 **mcpp 2026.8.6.2**;2026.8.5.2 是规则包从那一版起才真正能用
 `import std;` 与 `import mcpp;` 的。
 
-两个示例,是刻意的:
+## 需要更多控制时
+
+`generate_all()` 之外不是断崖 —— 每一层都是下一层的默认值,**不是另一条路**:
+`generate_all(opt)` 就是 `submit(plan_all(opt))`,`.grpc = true` 就是
+`.plugins = {cpp()}`。
+
+```cpp
+// L1 —— 声明式旋钮
+grpcgen::generate_all({
+    .extra_dirs  = {"../shared-proto"},   // 也要生成的共享 .proto 树
+    .imports     = {"/opt/googleapis"},   // 只搜索,不生成
+    .mock        = true,                  // gRPC 的 generate_mock_code=true
+    .protoc_args = {"--experimental_allow_proto3_optional"},
+});
+
+// L2 —— 插件列表;`.grpc = true` 是「列表里有 cpp()」的语法糖
+grpcgen::generate_all({ .plugins = { grpcgen::cpp(), my_plugin } });
+
+// L3 —— plan / submit 分离:再离谱的需求也不必绕开规则
+auto edges = grpcgen::plan_all();
+for (auto& e : edges) e.arg("--whatever");
+grpcgen::submit(edges);
+```
+
+`extra_dirs` 与 `imports` 的区别不是学究:protoc 会把
+`#include "common/types.pb.h"` 写进任何 import 了它的文件,所以只靠 `-I` 够到的
+共享树会产出一个**没人生成**的头,报错还离原因很远。代码归你构建就用
+`extra_dirs`,代码来自别处(你已经链接的包)才用 `imports`。
+
+**可观测性的分工**:每条边的完整命令行由 mcpp 写进 `build.ninja`,
+`ninja -t commands <output>` 就能取 —— 规则不重造。规则负责的是「**哪些旋钮**产生
+了它」,写在每次构建都会打印的 description 里:
+
+```
+GENERATE protoc:orders (+grpc +mock, -Iproto -I../shared-proto)
+```
+
+`examples/advanced` 覆盖 L1 + L3。
+
+三个示例,是刻意的:
 
 | | |
 |---|---|
 | `examples/greeter` | 模板的实例化 —— 经 `grpcgen`,`build.mcpp` 三行 |
 | `examples/helloworld` | 同一个程序,但把规则手工摊开写,让机制保持可读 |
+| `examples/advanced` | 分层旋钮:跨根生成的共享 .proto 树、gRPC mock、plan/submit 中间加断言 |
 
 由此得到三个手工管理 codegen 给不了的性质:
 
@@ -154,6 +194,8 @@ rules/                     `grpcgen` —— codegen 规则包(host module)
 plugin/                    `grpc_cpp_plugin` —— 独立的 codegen 工具包
 examples/greeter/          模板实例化:三行 build.mcpp
 examples/helloworld/       同一个程序,规则手工摊开写
+examples/advanced/         分层旋钮(extra_dirs / mock / plan-submit)
+examples/shared-proto/     被 advanced 跨根生成的共享 .proto 树
 ```
 
 `mcpp.toml` 里那份 995 条的源码清单是**上游自己的** —— `add_library(gpr)`、

@@ -1,0 +1,11 @@
+syntax = "proto3";
+package orders;
+
+import "common/types.proto";   // resolved via .imports, not via proto/
+
+message PlaceRequest  { string sku = 1; common.Trace trace = 2; }
+message PlaceReply    { string order_id = 1; }
+
+service Orders {
+  rpc Place (PlaceRequest) returns (PlaceReply);
+}

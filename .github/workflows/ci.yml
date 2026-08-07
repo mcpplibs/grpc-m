@@ -25,7 +25,20 @@ jobs:
   build:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 120
+    # Every example is its own project depending on `grpc` by path, and each
+    # one builds gRPC from source again — the cache does not carry across
+    # them. Measured on linux: module test 25min, then ~31min per example.
+    # Three examples already sat at ~90min under the old 120 cap; adding
+    # `advanced` pushed the run past it and the job was cancelled mid-build,
+    # which reads like a failure and is not one.
+    #
+    # Raising the cap is the honest short-term answer, not the right one:
+    # what actually costs the hour and a half is rebuilding the same gRPC
+    # four times in series. Splitting the examples into their own matrix leg
+    # (or getting the dependency cache to hit across sibling projects) turns
+    # ~2h of wall clock into ~35min. Worth doing on its own, not inside a
+    # release PR.
+    timeout-minutes: 210
     strategy:
       fail-fast: false
       matrix:
@@ -104,6 +117,38 @@ jobs:
           MCPP_BUILD_CACHE: local
         run: |
           "$MCPP" run
+
+      # The layered knobs, in the shape a real project hits first: a shared
+      # .proto tree that must be GENERATED (not merely searched), gRPC's mock
+      # generation, and plan/submit with an assertion in between. greeter
+      # covers L0; without this one, everything past the two original options
+      # is untested.
+      - name: advanced example — extra_dirs + mock + plan/submit
+        shell: bash
+        working-directory: examples/advanced
+        env:
+          MCPP_INDEX_MIRROR: GLOBAL
+          MCPP_BUILD_CACHE: local
+        run: |
+          "$MCPP" run
+          # The mock header is declared by the edge and produced by protoc;
+          # nothing includes it (no gmock in this ecosystem), so assert the
+          # file itself rather than trusting the plan-time check alone.
+          out=$(find target/.build-mcpp/out -name 'orders_mock.grpc.pb.h' | head -1)
+          test -n "$out" || { echo "no mock header produced"; exit 1; }
+          echo "mock header: $out"
+          # The shared tree was generated, not just searched.
+          test -f target/.build-mcpp/out/common/types.pb.cc \
+            || { echo "shared-proto was not generated"; exit 1; }
+          # The edge describes ITSELF. This is the rule's half of observability
+          # — mcpp already puts the full argv in build.ninja, so what the rule
+          # owns is "which knobs produced it", and that string is what every
+          # build prints. Asserting it keeps the two from drifting apart.
+          nj=$(find target -name build.ninja | head -1)
+          grep -q 'description = GENERATE protoc:orders (+grpc +mock,' "$nj" \
+            || { echo "edge description does not describe its knobs:";
+                 grep -o 'description = GENERATE protoc:.*' "$nj"; exit 1; }
+          grep -o 'description = GENERATE protoc:.*' "$nj"
 
   package-versions-match:
     name: all three packages share one version

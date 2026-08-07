@@ -1,0 +1,7 @@
+syntax = "proto3";
+package common;
+
+// Lives OUTSIDE the project's own proto/ — reachable only through an extra
+// `-I` root, which is what `.imports` exists for. A shared .proto repository
+// is the normal shape once more than one service is involved.
+message Trace { string id = 1; }
