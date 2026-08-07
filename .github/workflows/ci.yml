@@ -1,9 +1,19 @@
 name: CI
 
+# Docs carry no build risk, and this workflow's linux leg is a ~2h serial
+# gRPC build (see timeout-minutes below) — a markdown-only change would spend
+# it twice, once on the PR and once again on main. `paths-ignore` on both
+# triggers, not just the PR one, or the merge pays the second half anyway.
+#
+# Deliberately NOT ignored: mcpp.toml, build.mcpp, templates/, examples/,
+# rules/, plugin/, src/ — the contract checks (templates/greeter ==
+# examples/greeter, source list == upstream CMakeLists) read those.
 on:
   push:
     branches: [main]
+    paths-ignore: ["**.md", ".agents/**", "LICENSE"]
   pull_request:
+    paths-ignore: ["**.md", ".agents/**", "LICENSE"]
 
 env:
   # Keep in step with the mcpp-index CI pin: this package's dependencies are
