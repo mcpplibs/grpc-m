@@ -183,6 +183,51 @@ jobs:
           [ "$lib" = "$rule" ] || { echo "FAIL: grpcgen ($rule) != grpc ($lib)"; rc=1; }
           exit $rc
 
+      # rules/mcpp.toml states that the package name and the module name are
+      # kept EQUAL, and that this is what makes the package work on every
+      # engine. Nothing enforced it: the check above compares versions.
+      #
+      # mcpp < 2026.8.29.1 registers a host module under the dependency's
+      # `package.name`; from that release it uses the name the interface
+      # declares. Only equality satisfies both.
+      #
+      # ⚠️ AND THE BREAK IS ASYMMETRIC, so one compiler cannot reveal it:
+      # renaming either alone still builds under GCC, which finds a BMI by its
+      # declared name through gcm.cache, and fails under Clang and MSVC, which
+      # are handed an explicit `<name>=<bmi>` mapping built from the registered
+      # name. This repository's own header says so; now something checks it.
+      - name: the rule's package name and module name must match
+        shell: bash
+        run: |
+          set -euo pipefail
+          toml=rules/mcpp.toml
+          iface=rules/src/grpcgen.cppm
+          test -f "$toml"  || { echo "FAIL: no $toml";  exit 1; }
+          test -f "$iface" || { echo "FAIL: no $iface"; exit 1; }
+          # One awk, no pipeline: `... | head -1` would let the writer take
+          # SIGPIPE and, under `pipefail`, report 141 for a successful match.
+          # Comment lines begin with '#' and match neither pattern, so the
+          # prose in this file that explains the rule cannot satisfy it.
+          pkg=$(awk '/^\[package\]/{p=1;next} /^\[/{p=0}
+                     p && /^[[:space:]]*name[[:space:]]*=/ {
+                         if (match($0, /"[^"]*"/)) {
+                             print substr($0, RSTART+1, RLENGTH-2); exit } }' "$toml")
+          mod=$(awk '/^[[:space:]]*export[[:space:]]+module[[:space:]]+/ {
+                         sub(/^[[:space:]]*export[[:space:]]+module[[:space:]]+/, "")
+                         sub(/[[:space:]]*;.*$/, "")
+                         print; exit }' "$iface")
+          echo "package.name='${pkg}'  export module='${mod}'"
+          # Both must be non-empty. An extractor that matched nothing would
+          # otherwise report success on a file it never parsed.
+          [ -n "$pkg" ] || { echo "FAIL: could not read [package].name from $toml"; exit 1; }
+          [ -n "$mod" ] || { echo "FAIL: could not read 'export module' from $iface"; exit 1; }
+          [ "$pkg" = "$mod" ] || {
+              echo "FAIL: package name '$pkg' != module name '$mod'"
+              echo "Consumers on mcpp < 2026.8.29.1 import the package name;"
+              echo "from 2026.8.29.1 they import the declared name. Keep them equal."
+              exit 1; }
+          echo "OK: both are '$pkg'"
+
   template-matches-example:
     name: templates/greeter == examples/greeter
     runs-on: ubuntu-latest
