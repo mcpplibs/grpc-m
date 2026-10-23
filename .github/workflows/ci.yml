@@ -29,7 +29,7 @@ env:
   #               and `rerun_if_changed_glob`, without which generate_all()
   #               would not re-run when a .proto is ADDED (no declared file's
   #               hash changes), silently never generating it
-  MCPP_VERSION: "2026.8.6.2"
+  MCPP_VERSION: "2026.10.24.1"
 
 jobs:
   build:

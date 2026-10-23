@@ -2,3 +2,5 @@ target/
 .mcpp/
 mcpp.lock
 compile_commands.json
+
+.xlings/

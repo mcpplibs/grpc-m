@@ -246,3 +246,24 @@ cd examples/helloworld && mcpp run   # same program, rule written by hand
 
 The module layer and build glue are Apache-2.0, matching vendored gRPC
 ([LICENSE](LICENSE)). Each dependency keeps its own license.
+
+
+## Current-client quickstart candidate
+
+The wrapper revision is `1.83.0.1`; the upstream C/C++ API and published module
+identity stay unchanged. Development tooling uses mcpp `2026.10.24.1`. Templates
+now write one qualified dependency from `self.name`, without repeating a namespace.
+
+```sh
+mcpp new quickstart --template grpc.grpc@1.83.0.1:greeter
+cd quickstart
+mcpp run
+```
+
+This revision is a PR candidate until its source archive and index entry are
+validated. `tools/test_template.py` exercises actual `mcpp new`, checks the
+rendered dependency, strictly builds the candidate and runs it.
+
+The `codegen` feature takes its plugin and rule from this same source artifact.
+Host rule libraries use `[build-dependencies]`; protoc/plugin compilation remains
+conditional on `codegen`. The runtime, plugin and rule share the wrapper revision.

@@ -23,7 +23,7 @@
 # See ../.agents/docs/2026-08-05-codegen-ecosystem-design.md §3.
 [package]
 name        = "grpc-plugin"
-version     = "1.83.0"
+version     = "1.83.0.1"
 standard    = "c++23"
 description = "grpc_cpp_plugin — the gRPC C++ code generator, buildable as an mcpp host tool"
 license     = "Apache-2.0"

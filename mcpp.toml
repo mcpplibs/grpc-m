@@ -1,6 +1,6 @@
 [package]
 name        = "grpc"
-version     = "1.83.0"
+version     = "1.83.0.1"
 standard    = "c++23"
 description = "gRPC 1.83.0 for mcpp — upstream C++ source vendored and built by this manifest, with abseil / protobuf / re2 / c-ares / OpenSSL taken from mcpp-index instead of re-vendored."
 license     = "Apache-2.0"
@@ -1162,10 +1162,14 @@ compat.protobuf   = { version = "35.1", tools = ["protoc"], reexport = true }
 # The gRPC C++ codegen plugin — a package of its own rather than a target
 # inside gRPC, because a code generator needs a .proto parser and a C++
 # emitter, not TLS, DNS and a regex engine.
-grpc.grpc-plugin  = { version = "1.83.0", tools = ["grpc_cpp_plugin"], reexport = true }
+grpc.grpc-plugin  = { path = "plugin", tools = ["grpc_cpp_plugin"], reexport = true }
 # The rule itself, as an importable host module. Not upstream code, so it
 # lives in mcpplibs rather than in the grpc namespace.
-mcpplibs.grpcgen  = { version = "1.83.0", host-module = true, reexport = true }
+# Host libraries use the current build-dependency contract. Re-exporting the
+# small rule package makes it available to a consumer build.mcpp; the expensive
+# protoc/plugin tools above remain conditional on codegen.
+[build-dependencies]
+"mcpplibs.grpcgen" = { path = "rules", host-module = true, reexport = true }
 
 [target.'cfg(windows)'.build]
 cxxflags = [

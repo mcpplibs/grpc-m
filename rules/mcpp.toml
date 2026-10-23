@@ -5,8 +5,8 @@
 # as an ordinary library package that the consumer imports from its build
 # program:
 #
-#   [dependencies]
-#   grpcgen = { version = "1.83.0", host-module = true }
+#   [build-dependencies]
+#   grpcgen = { version = "1.83.0.1", host-module = true }
 #
 #   // build.mcpp
 #   import mcpp;
@@ -34,7 +34,7 @@
 # tag, and .github/workflows/ci.yml checks that they never drift apart.
 [package]
 name        = "grpcgen"
-version     = "1.83.0"
+version     = "1.83.0.1"
 standard    = "c++23"
 description = "protoc + grpc_cpp_plugin codegen as an importable mcpp build rule"
 license     = "Apache-2.0"

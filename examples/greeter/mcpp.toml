@@ -49,6 +49,8 @@ grpc-plugin = { path = "../../plugin", tools = ["grpc_cpp_plugin"] }
 # The codegen RULE. `host-module = true` makes its module importable from
 # build.mcpp, which is why build.mcpp is three lines instead of sixty. It is
 # build-time only — not compiled into or linked with this project.
-grpcgen = { path = "../../rules", host-module = true }
 # protoc, pinned to the same protobuf this project links.
 compat.protobuf = { version = "35.1", tools = ["protoc"] }
+
+[build-dependencies]
+grpcgen = { path = "../../rules", host-module = true }
