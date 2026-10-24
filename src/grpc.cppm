@@ -47,6 +47,7 @@ module;
 #include <grpcpp/support/sync_stream.h>
 
 export module mcpplibs.mwrap.grpc;
+export import mcpplibs.mwrap.grpc.macros;
 
 export namespace grpc {
 
@@ -136,4 +137,3 @@ export using ::GRPC_CHANNEL_READY;
 export using ::GRPC_CHANNEL_TRANSIENT_FAILURE;
 export using ::GRPC_CHANNEL_SHUTDOWN;
 
-export import mcpplibs.mwrap.grpc.macros;
