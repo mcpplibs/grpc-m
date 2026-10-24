@@ -4,13 +4,13 @@
 
 [English](README.md) · **简体中文**
 
+上游仓库：[grpc/grpc](https://github.com/grpc/grpc)
+
 [Releases](https://github.com/mcpplibs/grpc-m/releases) · [mcpp](https://github.com/mcpp-community/mcpp) · [Index](https://github.com/mcpplibs/mcpp-index)
 
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![License](https://img.shields.io/badge/license-Apache-2.0-blue.svg)](LICENSE)
 [![CI](https://github.com/mcpplibs/grpc-m/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mcpplibs/grpc-m/actions/workflows/ci.yml)
-
-使用 mcpp **2026.10.24.1**。新 mwrap 身份在索引发布后可直接安装。
 
 ## 快速开始
 
@@ -50,7 +50,10 @@ import mcpplibs.mwrap.grpc;
 
 ## 特性
 
-`codegen` 转发宿主工具，`ares` 按需开启；不另行 vendor protobuf/Abseil/OpenSSL 实现。
+| Feature | 用途 |
+|---|---|
+| `codegen` | protoc、C++ 插件与宿主规则 |
+| `ares` | c-ares DNS 解析器 |
 
 ## 构建方式
 

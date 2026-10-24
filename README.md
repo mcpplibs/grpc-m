@@ -4,13 +4,13 @@
 
 **English** · [简体中文](README.zh.md)
 
+Upstream: [grpc/grpc](https://github.com/grpc/grpc)
+
 [Releases](https://github.com/mcpplibs/grpc-m/releases) · [mcpp](https://github.com/mcpp-community/mcpp) · [Index](https://github.com/mcpplibs/mcpp-index)
 
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![License](https://img.shields.io/badge/license-Apache-2.0-blue.svg)](LICENSE)
 [![CI](https://github.com/mcpplibs/grpc-m/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mcpplibs/grpc-m/actions/workflows/ci.yml)
-
-Use mcpp **2026.10.24.1**. The new mwrap identity becomes installable after index publication.
 
 ## Quick Start
 
@@ -50,7 +50,10 @@ Runtime: Linux/macOS. Windows runtime is unavailable through the current OpenSSL
 
 ## Features
 
-`codegen` forwards host tools; `ares` is opt-in. No second protobuf/Abseil/OpenSSL implementation is vendored.
+| Feature | Purpose |
+|---|---|
+| `codegen` | protoc, C++ plugin and host rule |
+| `ares` | c-ares DNS resolver |
 
 ## How it is built
 

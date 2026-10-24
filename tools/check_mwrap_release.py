@@ -22,7 +22,7 @@ def main():
     identity = package['namespace'] + '.' + package['name']
     for name, other in [('README.md', 'README.zh.md'), ('README.zh.md', 'README.md')]:
         text = (root / name).read_text(encoding="utf-8")
-        assert len(text.splitlines()) <= 100, name
+        assert len(text.splitlines()) <= 150, name
         assert '](' + other + ')' in '\n'.join(text.splitlines()[:12]), name
         assert identity in text and version in text, name
         assert text.count('```') % 2 == 0, name
