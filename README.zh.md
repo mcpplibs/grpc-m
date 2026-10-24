@@ -2,11 +2,18 @@
 
 > 从源码构建 gRPC 1.83.0，保留 grpc::，共享索引依赖。
 
-[English](README.md) · **简体中文** · 上游：[grpc/grpc](https://github.com/grpc/grpc) · [Releases](https://github.com/mcpplibs/grpc-m/releases) · [mcpp](https://github.com/mcpp-community/mcpp) · [Index](https://github.com/mcpplibs/mcpp-index)
+[English](README.md) · **简体中文** · [Upstream](https://github.com/grpc/grpc) · [Releases](https://github.com/mcpplibs/grpc-m/releases) · [mcpp](https://github.com/mcpp-community/mcpp) · [Index](https://github.com/mcpplibs/mcpp-index)
 
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![License](https://img.shields.io/badge/license-Apache-2.0-blue.svg)](LICENSE)
 [![CI](https://github.com/mcpplibs/grpc-m/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mcpplibs/grpc-m/actions/workflows/ci.yml)
+
+## 模块
+
+- `import mcpplibs.mwrap.grpc;`: grpc:: 客户端、服务端与状态 API
+- `import mcpplibs.mwrap.grpc.macros;`: 版本宏映射
+
+> More Modules API -> [模块与 API](docs/usage.zh.md)
 
 ## 快速开始
 

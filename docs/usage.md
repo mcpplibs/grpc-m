@@ -170,7 +170,7 @@ Three properties this buys, none of which hand-managed codegen can offer:
 - **Cross-compilation is correct by construction.** Under `--target` the tools are still
   built for the build machine, with no action from you.
 
-> `grpc-plugin` is a package of its own rather than a target inside `grpc`, because
+> `grpc-plugin` is a package of its own rather than a target inside `mcpplibs.mwrap.grpc`, because
 > upstream's plugin links `grpc_plugin_support` + protobuf and nothing else — a code
 > generator needs a `.proto` parser and a C++ emitter, not TLS, DNS and a regex engine.
 > See `.agents/docs/2026-08-05-codegen-ecosystem-design.md` §2.

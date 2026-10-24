@@ -161,7 +161,7 @@ GENERATE protoc:orders (+grpc +mock, -Iproto -I../shared-proto)
 - **增量。** 生成是一条 ninja 边,`.proto` 变了才重跑,不变就不跑。
 - **交叉编译构造上就对。** `--target` 下工具依然为构建机器构建,你什么都不用做。
 
-> `grpc-plugin` 是独立的包而不是 `grpc` 里的一个 target,因为上游的插件只链
+> `grpc-plugin` 是独立的包而不是 `mcpplibs.mwrap.grpc` 里的一个 target,因为上游的插件只链
 > `grpc_plugin_support` + protobuf,别的都不链 —— 一个代码生成器需要的是 `.proto`
 > 解析器和 C++ 发射器,不是 TLS、DNS 和正则引擎。
 > 详见 `.agents/docs/2026-08-05-codegen-ecosystem-design.md` §2。
