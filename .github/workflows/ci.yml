@@ -1,8 +1,8 @@
 name: CI
 
-# Docs carry no build risk, and this workflow's linux leg is a ~2h serial
-# gRPC build (see timeout-minutes below) — a markdown-only change would spend
-# it twice, once on the PR and once again on main. `paths-ignore` on both
+# The native leg builds gRPC and runs several generated-code consumers;
+# a markdown-only change would spend that time twice, once on the PR and
+# once again on main. `paths-ignore` on both
 # triggers, not just the PR one, or the merge pays the second half anyway.
 #
 # Deliberately NOT ignored: mcpp.toml, build.mcpp, templates/, examples/,
@@ -35,19 +35,9 @@ jobs:
   build:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    # Every example is its own project depending on `grpc` by path, and each
-    # one builds gRPC from source again — the cache does not carry across
-    # them. Measured on linux: module test 25min, then ~31min per example.
-    # Three examples already sat at ~90min under the old 120 cap; adding
-    # `advanced` pushed the run past it and the job was cancelled mid-build,
-    # which reads like a failure and is not one.
-    #
-    # Raising the cap is the honest short-term answer, not the right one:
-    # what actually costs the hour and a half is rebuilding the same gRPC
-    # four times in series. Splitting the examples into their own matrix leg
-    # (or getting the dependency cache to hit across sibling projects) turns
-    # ~2h of wall clock into ~35min. Worth doing on its own, not inside a
-    # release PR.
+    # Allow a cold native build plus all generated-code consumers. The pinned
+    # client can reuse SDK objects across projects; the former local-cache
+    # workaround forced four cold builds and is no longer needed.
     timeout-minutes: 210
     strategy:
       fail-fast: false
@@ -89,17 +79,13 @@ jobs:
         run: |
           "$MCPP" index update
 
-      # mcpp#344: object-path disambiguation keys on basename collisions across
-      # the whole build dir, while the package cache key covers only the
-      # dependency — one entry can hold two layouts. This graph has several
-      # colliding basenames (abseil/protobuf `parser.cc`, abseil/gRPC
-      # `status.cc`, `time.cc`), so the package cache is bypassed exactly as
-      # mcpp-index's own CI does. Drop this once the pin reaches 2026.8.3.4.
+      # The pinned client includes the object-layout cache fix (2026.8.3.4).
+      # Reuse SDK objects between actual consumers; every example still builds
+      # its own generated sources and executes its runtime checks.
       - name: Build the library and run the module test
         shell: bash
         env:
           MCPP_INDEX_MIRROR: GLOBAL
-          MCPP_BUILD_CACHE: local
         run: |
           "$MCPP" --version
           "$MCPP" test
@@ -110,7 +96,6 @@ jobs:
         working-directory: examples/helloworld
         env:
           MCPP_INDEX_MIRROR: GLOBAL
-          MCPP_BUILD_CACHE: local
         run: |
           "$MCPP" run
 
@@ -124,7 +109,6 @@ jobs:
         working-directory: examples/greeter
         env:
           MCPP_INDEX_MIRROR: GLOBAL
-          MCPP_BUILD_CACHE: local
         run: |
           "$MCPP" run
 
@@ -138,7 +122,6 @@ jobs:
         working-directory: examples/advanced
         env:
           MCPP_INDEX_MIRROR: GLOBAL
-          MCPP_BUILD_CACHE: local
         run: |
           "$MCPP" run
           # The mock header is declared by the edge and produced by protoc;
@@ -148,16 +131,16 @@ jobs:
           test -n "$out" || { echo "no mock header produced"; exit 1; }
           echo "mock header: $out"
           # The shared tree was generated, not just searched.
-          test -f target/.build-mcpp/out/common/types.pb.cc \
+          test -s "$(dirname "$out")/common/types.pb.cc" \
             || { echo "shared-proto was not generated"; exit 1; }
           # The edge describes ITSELF. This is the rule's half of observability
           # — mcpp already puts the full argv in build.ninja, so what the rule
           # owns is "which knobs produced it", and that string is what every
           # build prints. Asserting it keeps the two from drifting apart.
-          nj=$(find target -name build.ninja | head -1)
-          grep -q 'description = GENERATE protoc:orders (+grpc +mock,' "$nj" \
-            || { echo "edge description does not describe its knobs:";
-                 grep -o 'description = GENERATE protoc:.*' "$nj"; exit 1; }
+          nj=$(find target -name build.ninja -exec grep -lF \
+            'description = GENERATE protoc:orders (+grpc +mock,' {} + | head -1)
+          test -n "$nj" \
+            || { echo "no build graph describes the requested generation knobs"; exit 1; }
           grep -o 'description = GENERATE protoc:.*' "$nj"
 
   package-versions-match:
