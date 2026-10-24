@@ -2,11 +2,7 @@
 
 > gRPC 1.83.0 from source, preserving grpc:: and sharing indexed dependencies.
 
-**English** · [简体中文](README.zh.md)
-
-Upstream: [grpc/grpc](https://github.com/grpc/grpc)
-
-[Releases](https://github.com/mcpplibs/grpc-m/releases) · [mcpp](https://github.com/mcpp-community/mcpp) · [Index](https://github.com/mcpplibs/mcpp-index)
+**English** · [简体中文](README.zh.md) · Upstream: [grpc/grpc](https://github.com/grpc/grpc) · [Releases](https://github.com/mcpplibs/grpc-m/releases) · [mcpp](https://github.com/mcpp-community/mcpp) · [Index](https://github.com/mcpplibs/mcpp-index)
 
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![License](https://img.shields.io/badge/license-Apache-2.0-blue.svg)](LICENSE)

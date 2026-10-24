@@ -2,11 +2,7 @@
 
 > 从源码构建 gRPC 1.83.0，保留 grpc::，共享索引依赖。
 
-[English](README.md) · **简体中文**
-
-上游仓库：[grpc/grpc](https://github.com/grpc/grpc)
-
-[Releases](https://github.com/mcpplibs/grpc-m/releases) · [mcpp](https://github.com/mcpp-community/mcpp) · [Index](https://github.com/mcpplibs/mcpp-index)
+[English](README.md) · **简体中文** · 上游：[grpc/grpc](https://github.com/grpc/grpc) · [Releases](https://github.com/mcpplibs/grpc-m/releases) · [mcpp](https://github.com/mcpp-community/mcpp) · [Index](https://github.com/mcpplibs/mcpp-index)
 
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![License](https://img.shields.io/badge/license-Apache-2.0-blue.svg)](LICENSE)
