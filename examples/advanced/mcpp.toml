@@ -27,7 +27,7 @@ kind = "bin"
 main = "src/main.cpp"
 
 [dependencies]
-grpc        = { path = "../.." }
+"mcpplibs.mwrap.grpc"        = { path = "../.." }
 grpc-plugin = { path = "../../plugin", tools = ["grpc_cpp_plugin"] }
 
 [dependencies.mcpplibs]

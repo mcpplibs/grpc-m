@@ -25,7 +25,7 @@
 #include "helloworld.grpc.pb.h"
 
 // Generated protobuf headers stay textual; import the public module last.
-import grpc;
+import mcpplibs.mwrap.grpc;
 
 namespace {
 

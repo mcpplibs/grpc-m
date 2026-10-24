@@ -1,52 +1,68 @@
 # grpc-m
 
-gRPC **1.83.0** 的 C++23 模块封装，保留 `grpc::` API，并统一 protobuf 代码生成工具。
+> 从源码构建 gRPC 1.83.0，保留 grpc::，共享索引依赖。
 
-[English](README.md)
+[English](README.md) · **简体中文**
+
+[Releases](https://github.com/mcpplibs/grpc-m/releases) · [mcpp](https://github.com/mcpp-community/mcpp) · [Index](https://github.com/mcpplibs/mcpp-index)
+
+[![C++23](https://img.shields.io/badge/C%2B%2B-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
+[![License](https://img.shields.io/badge/license-Apache-2.0-blue.svg)](LICENSE)
+[![CI](https://github.com/mcpplibs/grpc-m/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mcpplibs/grpc-m/actions/workflows/ci.yml)
+
+使用 mcpp **2026.10.24.1**。新 mwrap 身份在索引发布后可直接安装。
 
 ## 快速开始
 
-使用 mcpp **2026.10.24.1**。以下为候选版本，索引发布后可直接创建项目。
-
 ```sh
-mcpp new greeter --template grpc.grpc@1.83.0.1
+mcpp new greeter --template mcpplibs.mwrap.grpc@1.83.0
 cd greeter
 mcpp run
 ```
 
-默认模板生成 stub、启动本地回环服务器，并验证真实 RPC 响应。
-
-## 已有项目
-
 ```toml
 [dependencies]
-"grpc.grpc" = { version = "1.83.0.1", features = ["codegen"] }
+mcpplibs.mwrap.grpc = { version = "1.83.0", features = ["codegen"] }
 ```
 
-把 schema 放入 `proto/helloworld.proto`，并添加 `build.mcpp`：
-
-```cpp
-import mcpp;
-import grpcgen;
-int main() { return grpcgen::generate_all() ? 0 : 1; }
-```
+## 两种使用方式
 
 ```cpp
 #include "helloworld.grpc.pb.h"
-import grpc;
-int main() { return grpc::Status::OK.ok() ? 0 : 1; }
+import mcpplibs.mwrap.grpc;
 ```
 
-文本 include 放在 import 之前。模板已经提供代码生成所需的 build 程序。
-`codegen` 提供配套 protoc、C++ plugin 与规则；把自己的 schema 放入 `proto/` 即可。
+标准库与生成头放在 import 前；也可直接使用 `<grpcpp/grpcpp.h>`。
+`.macros` 映射版本常量；预处理宏仍通过文本头使用。
 
-## 能力边界
+## 代码生成
 
-当前依赖集支持 Linux 与 macOS，Windows 暂未提供。
-默认 `ares` 使用 c-ares；`default-features = false` 改用原生解析器。
-交叉编译应用时，生成工具仍为构建机编译。
+`codegen` 提供 protoc、grpc_cpp_plugin 与宿主规则；默认模板实际生成存根。
+[规则 API 与生成头顺序](docs/usage.zh.md)
 
-## 文档
+## 需要更多控制时
 
-[用法与代码生成](docs/usage.zh.md) · [Greeter](examples/greeter) ·
-[高级代码生成](examples/advanced) · [Apache-2.0](LICENSE)
+使用 `grpcgen::generate_all`、`plan_all`、`submit` 配置导入目录、插件与显式构建边。
+
+## 平台支持
+
+运行时支持 Linux/macOS；当前 OpenSSL 供应者未支持 Windows 运行时，宿主工具单独测试。
+
+## 特性
+
+`codegen` 转发宿主工具，`ares` 按需开启；不另行 vendor protobuf/Abseil/OpenSSL 实现。
+
+## 构建方式
+
+固定 gRPC 源码配合索引依赖，私有配置位于 `build.mcpp`；见[详情](docs/usage.zh.md)。
+
+## 本地构建与测试
+
+```sh
+mcpp build
+mcpp test
+```
+
+## 许可证
+
+[Apache-2.0](LICENSE)；保留第三方依赖通知。

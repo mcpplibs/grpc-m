@@ -2,7 +2,7 @@
 
 # grpc-m
 
-> 面向 mcpp 的 gRPC 1.83.0 —— 从上游源码构建、`import grpc;` 即用、一条命令跑通一次真实 RPC
+> 面向 mcpp 的 gRPC 1.83.0 —— 从上游源码构建、`import mcpplibs.mwrap.grpc;` 即用、一条命令跑通一次真实 RPC
 
 [![Release](https://img.shields.io/github/v/release/mcpplibs/grpc-m)](https://github.com/mcpplibs/grpc-m/releases)
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
@@ -33,11 +33,11 @@ Greeter replied: Hello mcpp
 或加入已有工程:
 
 ```bash
-mcpp add grpc.grpc
+mcpp add mcpplibs.mwrap.grpc
 ```
 
 ```toml
-[dependencies.grpc]
+[dependencies.mcpplibs.mwrap]
 grpc = "1.83.0"
 ```
 
@@ -49,7 +49,7 @@ gRPC 的代码生成器产出的是**头文件**,所以任何真实程序都会 
 ```cpp
 #include <string>                     // 标准库头在前
 #include "helloworld.grpc.pb.h"       // 然后是 protoc 产物
-import grpc;                          // 模块放最后 —— 原因见下
+import mcpplibs.mwrap.grpc;                          // 模块放最后 —— 原因见下
 
 class Greeter final : public helloworld::Greeter::Service {
     grpc::Status SayHello(grpc::ServerContext*, const helloworld::HelloRequest* req,
@@ -60,7 +60,7 @@ class Greeter final : public helloworld::Greeter::Service {
 };
 ```
 
-> **`import grpc;` 必须放最后。** 该模块的 BMI 里带着标准库(它包裹 `<grpcpp/grpcpp.h>`,
+> **`import mcpplibs.mwrap.grpc;` 必须放最后。** 该模块的 BMI 里带着标准库(它包裹 `<grpcpp/grpcpp.h>`,
 > 而后者会拉进大半个标准库),所以在 import **之后**再 textual include 会让同一批声明到达两次,
 > 构建直接失败 —— 报 `redefinition of std::__is_constant_evaluated`,或 `std::string` 上的
 > `ambiguous overload for operator==`。把所有 `#include` 放在 import 之前就一切正常:
@@ -80,7 +80,7 @@ gRPC 需要两个宿主工具 —— `protoc` 与 `grpc_cpp_plugin` —— 自 *
 你不再需要自己准备它们,也不需要知道它们是谁:
 
 ```toml
-[dependencies.grpc]
+[dependencies.mcpplibs.mwrap]
 grpc = { version = "1.83.0", features = ["codegen"] }
 ```
 
@@ -181,7 +181,7 @@ windows 所需的编译/链接选项已经写在 `mcpp.toml` 里,等那个条目
 | `ares` | **开** | c-ares 异步 DNS 解析器,与上游 gRPC 一致。用 `default-features = false` 关闭:7 个 TU 与 `compat.c-ares` 依赖一并移除,并定义 `GRPC_ARES=0`,gRPC 改用原生解析器 —— 即上游自己的 `grpc_no_ares=true` 配置。 |
 
 ```toml
-[dependencies.grpc]
+[dependencies.mcpplibs.mwrap]
 grpc = { version = "1.83.0", default-features = false }   # 不带 c-ares
 ```
 

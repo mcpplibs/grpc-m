@@ -41,7 +41,7 @@ kind = "bin"
 main = "src/main.cpp"
 
 [dependencies]
-grpc = { path = "../.." }
+"mcpplibs.mwrap.grpc" = { path = "../.." }
 # The gRPC C++ codegen plugin — a package of its own rather than a target
 # inside gRPC, because a code generator needs a .proto parser and a C++
 # emitter, not TLS, DNS and a regex engine.

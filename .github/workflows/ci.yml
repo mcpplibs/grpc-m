@@ -54,6 +54,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Mwrap identity and bilingual README contract
+        run: python3 tools/check_mwrap_release.py
+
       - name: Download pinned mcpp
         shell: bash
         run: |
@@ -144,7 +147,7 @@ jobs:
           grep -o 'description = GENERATE protoc:.*' "$nj"
 
   package-versions-match:
-    name: all three packages share one version
+    name: runtime and host tools share upstream source
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -157,14 +160,17 @@ jobs:
       - name: versions must match
         shell: bash
         run: |
-          lib=$(awk -F'"' '/^version/{print $2; exit}' mcpp.toml)
-          plug=$(awk -F'"' '/^version/{print $2; exit}' plugin/mcpp.toml)
-          rule=$(awk -F'"' '/^version/{print $2; exit}' rules/mcpp.toml)
-          echo "grpc=$lib  grpc-plugin=$plug  grpcgen=$rule"
-          rc=0
-          [ "$lib" = "$plug" ] || { echo "FAIL: grpc-plugin ($plug) != grpc ($lib)"; rc=1; }
-          [ "$lib" = "$rule" ] || { echo "FAIL: grpcgen ($rule) != grpc ($lib)"; rc=1; }
-          exit $rc
+          python3 - <<'PYVERS'
+          import tomllib
+          from pathlib import Path
+          runtime = tomllib.loads(Path("mcpp.toml").read_text())["package"]
+          plugin = tomllib.loads(Path("plugin/mcpp.toml").read_text())["package"]
+          rule = tomllib.loads(Path("rules/mcpp.toml").read_text())["package"]
+          upstream = runtime["metadata"]["mwrap"]["upstream-version"]
+          assert runtime["version"] == upstream == "1.83.0"
+          assert plugin["version"] == rule["version"] == upstream + ".1"
+          print("runtime", runtime["version"], "host tools", plugin["version"], "same pinned source")
+          PYVERS
 
       # rules/mcpp.toml states that the package name and the module name are
       # kept EQUAL, and that this is what makes the package work on every

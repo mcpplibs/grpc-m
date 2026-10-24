@@ -2,7 +2,7 @@ Detailed usage and background. See the [README](../README.md) for the current ca
 
 # grpc-m
 
-> gRPC 1.83.0 for mcpp — built from upstream source, `import grpc;` ready, one command to a working RPC
+> gRPC 1.83.0 for mcpp — built from upstream source, `import mcpplibs.mwrap.grpc;` ready, one command to a working RPC
 
 [![Release](https://img.shields.io/github/v/release/mcpplibs/grpc-m)](https://github.com/mcpplibs/grpc-m/releases)
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
@@ -34,11 +34,11 @@ Greeter replied: Hello mcpp
 Or add it to an existing project:
 
 ```bash
-mcpp add grpc.grpc
+mcpp add mcpplibs.mwrap.grpc
 ```
 
 ```toml
-[dependencies.grpc]
+[dependencies.mcpplibs.mwrap]
 grpc = "1.83.0"
 ```
 
@@ -50,7 +50,7 @@ module is the ergonomic surface for everything you write by hand around it.
 ```cpp
 #include <string>                     // std headers first
 #include "helloworld.grpc.pb.h"       // then protoc output
-import grpc;                          // the module LAST — see below
+import mcpplibs.mwrap.grpc;                          // the module LAST — see below
 
 class Greeter final : public helloworld::Greeter::Service {
     grpc::Status SayHello(grpc::ServerContext*, const helloworld::HelloRequest* req,
@@ -61,7 +61,7 @@ class Greeter final : public helloworld::Greeter::Service {
 };
 ```
 
-> **`import grpc;` goes last.** The module carries the standard library in its BMI (it
+> **`import mcpplibs.mwrap.grpc;` goes last.** The module carries the standard library in its BMI (it
 > wraps `<grpcpp/grpcpp.h>`, which pulls in most of it), so a textual `#include` *after*
 > the import delivers a second copy and the build fails — `redefinition of
 > std::__is_constant_evaluated`, or `ambiguous overload for operator==` on `std::string`.
@@ -83,7 +83,7 @@ you no longer supply them yourself. Declare them on the dependencies they belong
 the codegen rule, and that is the entire setup:
 
 ```toml
-[dependencies.grpc]
+[dependencies.mcpplibs.mwrap]
 grpc = { version = "1.83.0", features = ["codegen"] }
 ```
 
@@ -191,7 +191,7 @@ the day that entry lands.
 | `ares` | **on** | The c-ares asynchronous DNS resolver, matching upstream gRPC. Turn it off with `default-features = false`: 7 TUs and the `compat.c-ares` dependency drop out and `GRPC_ARES=0` is defined, so gRPC uses its native resolver — upstream's own `grpc_no_ares=true` configuration. |
 
 ```toml
-[dependencies.grpc]
+[dependencies.mcpplibs.mwrap]
 grpc = { version = "1.83.0", default-features = false }   # no c-ares
 ```
 
@@ -257,7 +257,7 @@ identity stay unchanged. Development tooling uses mcpp `2026.10.24.1`. Templates
 now write one qualified dependency from `self.name`, without repeating a namespace.
 
 ```sh
-mcpp new quickstart --template grpc.grpc@1.83.0.1:greeter
+mcpp new quickstart --template mcpplibs.mwrap.grpc@1.83.0.1:greeter
 cd quickstart
 mcpp run
 ```

@@ -1,6 +1,8 @@
+# Module wrapper; upstream API preserved. Policy: mcpp-index/docs/mwrap.md.
 [package]
-name        = "grpc"
-version     = "1.83.0.1"
+namespace = "mcpplibs.mwrap"
+name = "grpc"
+version = "1.83.0"
 standard    = "c++23"
 description = "gRPC 1.83.0 for mcpp — upstream C++ source vendored and built by this manifest, with abseil / protobuf / re2 / c-ares / OpenSSL taken from mcpp-index instead of re-vendored."
 license     = "Apache-2.0"
@@ -61,6 +63,7 @@ sources = [
     # of a `kind = "lib"` package as src/<package tail>.cppm, so this file
     # is both the module and what satisfies that convention.
     "src/grpc.cppm",
+    "src/macros.cppm",
     "third_party/grpc-1.83.0/src/core/config/config_vars.cc",
     "third_party/grpc-1.83.0/src/core/config/config_vars_non_generated.cc",
     "third_party/grpc-1.83.0/src/core/config/load_config.cc",
@@ -1193,3 +1196,6 @@ ldflags = ["-lpthread", "-ldl", "-lm"]
 [target.'cfg(macos)'.build]
 ldflags = ["-lresolv"]
 
+
+[package.metadata.mwrap]
+upstream-version = "1.83.0"

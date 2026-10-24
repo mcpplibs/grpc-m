@@ -84,6 +84,7 @@ LIB_ROOT_PREAMBLE = (
     "    # of a `kind = \"lib\"` package as src/<package tail>.cppm, so this file\n"
     "    # is both the module and what satisfies that convention.\n"
     '    "src/grpc.cppm",\n'
+    '    "src/macros.cppm",\n'
 )
 
 
