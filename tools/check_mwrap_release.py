@@ -11,7 +11,7 @@ def main():
     parser.add_argument('--tag', help='release tag; omitted during PR checks')
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    package = tomllib.loads((root / 'mcpp.toml').read_text())['package']
+    package = tomllib.loads((root / 'mcpp.toml').read_text(encoding="utf-8"))['package']
     assert package['namespace'] == 'mcpplibs.mwrap', package
     assert re.fullmatch(r'[A-Za-z_][A-Za-z_0-9]*', package['name']), package['name']
     upstream = package['metadata']['mwrap']['upstream-version']
@@ -21,7 +21,7 @@ def main():
         assert args.tag == 'mwrap-' + version, (args.tag, version)
     identity = package['namespace'] + '.' + package['name']
     for name, other in [('README.md', 'README.zh.md'), ('README.zh.md', 'README.md')]:
-        text = (root / name).read_text()
+        text = (root / name).read_text(encoding="utf-8")
         assert len(text.splitlines()) <= 100, name
         assert '](' + other + ')' in '\n'.join(text.splitlines()[:12]), name
         assert identity in text and version in text, name
