@@ -5,7 +5,8 @@ name = "grpc"
 version = "1.83.0"
 standard    = "c++23"
 description = "gRPC 1.83.0 for mcpp — upstream C++ source vendored and built by this manifest, with abseil / protobuf / re2 / c-ares / OpenSSL taken from mcpp-index instead of re-vendored."
-license     = "Apache-2.0"
+license = "Apache-2.0"
+authors = ["mcpp-community"]
 repo        = "https://github.com/mcpplibs/grpc-m"
 
 # linux + macOS only, and the reason is a dependency rather than gRPC itself:
@@ -1199,3 +1200,19 @@ ldflags = ["-lresolv"]
 
 [package.metadata.mwrap]
 upstream-version = "1.83.0"
+
+[[runtime.deploy]]
+from = "LICENSE"
+to = "licenses/grpc"
+
+[[runtime.deploy]]
+from = "NOTICE"
+to = "licenses/grpc"
+
+[[runtime.deploy]]
+from = "upstream/grpc/README.md"
+to = "licenses/grpc/upstream/grpc"
+
+[[runtime.deploy]]
+from = "upstream/grpc/LICENSE"
+to = "licenses/grpc/upstream/grpc"

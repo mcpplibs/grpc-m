@@ -1,0 +1,15 @@
+{
+  "upstream": "https://github.com/grpc/grpc/tree/v1.83.0",
+  "documents": [
+    {
+      "path": "upstream/grpc/README.md",
+      "source": "https://github.com/grpc/grpc/tree/v1.83.0/README.md",
+      "sha256": "15823e28dd6dcadfba187ac188bf22d79f26b783d1813eaca58588dbd2781d4f"
+    },
+    {
+      "path": "upstream/grpc/LICENSE",
+      "source": "https://github.com/grpc/grpc/tree/v1.83.0/LICENSE",
+      "sha256": "58c86a3f2b5cca0ebdf9ed3e7f4e6dc38e3b38796d8c3dc92064c62a4e39d0dd"
+    }
+  ]
+}
