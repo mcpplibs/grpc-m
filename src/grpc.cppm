@@ -1,11 +1,11 @@
 // grpc — a C++23 module interface over gRPC's public C++ API.
 //
-// USAGE ORDER MATTERS. `import grpc;` goes LAST, after every textual #include
+// USAGE ORDER MATTERS. `import mcpplibs.mwrap.grpc;` goes LAST, after every textual #include
 // in the translation unit — the standard library ones included:
 //
 //     #include <string>                // std headers first
 //     #include "myservice.grpc.pb.h"   // protoc output too
-//     import grpc;                     // the module last
+//     import mcpplibs.mwrap.grpc;                     // the module last
 //
 // The reason is the global module fragment below. It pulls <grpcpp/grpcpp.h>,
 // which pulls most of the standard library, and all of it lands in this
@@ -46,7 +46,8 @@ module;
 #include <grpcpp/support/status.h>
 #include <grpcpp/support/sync_stream.h>
 
-export module grpc;
+export module mcpplibs.mwrap.grpc;
+export import mcpplibs.mwrap.grpc.macros;
 
 export namespace grpc {
 
@@ -135,3 +136,4 @@ export using ::GRPC_CHANNEL_CONNECTING;
 export using ::GRPC_CHANNEL_READY;
 export using ::GRPC_CHANNEL_TRANSIENT_FAILURE;
 export using ::GRPC_CHANNEL_SHUTDOWN;
+

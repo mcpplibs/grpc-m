@@ -28,5 +28,5 @@ main = "src/main.cpp"
 # package's knowledge, not yours. The `grpc` namespace, because this is
 # UPSTREAM gRPC code: a namespace names whose library it is, not who packaged
 # it.
-[dependencies.grpc]
-{{self.name}} = { version = "{{self.version}}", features = ["codegen"] }
+[dependencies]
+"{{self.name}}" = { version = "{{self.version}}", features = ["codegen"] }

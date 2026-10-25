@@ -36,7 +36,7 @@ kind = "bin"
 main = "src/main.cpp"
 
 [dependencies]
-grpc = { path = "../.." }
+"mcpplibs.mwrap.grpc" = { path = "../.." }
 # The two host tools. `grpc-plugin` is a package separate from `grpc` on
 # purpose: a code generator needs a .proto parser and a C++ emitter, not TLS,
 # DNS and a regex engine — see the design doc §2.

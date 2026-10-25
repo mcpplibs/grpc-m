@@ -1,6 +1,6 @@
 // Proves the `grpc` module is USABLE, not merely compilable.
 //
-// Everything here goes through `import grpc;` — there is no <grpcpp/...>
+// Everything here goes through `import mcpplibs.mwrap.grpc;` — there is no <grpcpp/...>
 // include anywhere in this file — and every call below reaches a real symbol
 // in libgrpc.a. A module that exported names but linked to nothing would fail.
 //
@@ -10,7 +10,7 @@
 // service needs protoc output, which belongs in the example rather than in a
 // test of the module surface. examples/helloworld covers that path end to end.
 //
-// Note the ORDER: every textual #include comes first, `import grpc;` last.
+// Note the ORDER: every textual #include comes first, `import mcpplibs.mwrap.grpc;` last.
 // That is not a style choice — this module carries the standard library in its
 // BMI, so a std header included AFTER the import arrives a second time and
 // GCC fails with "ambiguous overload for operator==" on std::string. See the
@@ -19,7 +19,7 @@
 #include <memory>
 #include <string>
 
-import grpc;
+import mcpplibs.mwrap.grpc;
 
 int main() {
     // 1. A version string read from the library, not a header constant.

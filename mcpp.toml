@@ -1,9 +1,12 @@
+# Module wrapper; upstream API preserved. Policy: mcpp-index/docs/mwrap.md.
 [package]
-name        = "grpc"
-version     = "1.83.0"
+namespace = "mcpplibs.mwrap"
+name = "grpc"
+version = "1.83.0"
 standard    = "c++23"
 description = "gRPC 1.83.0 for mcpp — upstream C++ source vendored and built by this manifest, with abseil / protobuf / re2 / c-ares / OpenSSL taken from mcpp-index instead of re-vendored."
-license     = "Apache-2.0"
+license = "Apache-2.0"
+authors = ["mcpp-community"]
 repo        = "https://github.com/mcpplibs/grpc-m"
 
 # linux + macOS only, and the reason is a dependency rather than gRPC itself:
@@ -61,6 +64,7 @@ sources = [
     # of a `kind = "lib"` package as src/<package tail>.cppm, so this file
     # is both the module and what satisfies that convention.
     "src/grpc.cppm",
+    "src/macros.cppm",
     "third_party/grpc-1.83.0/src/core/config/config_vars.cc",
     "third_party/grpc-1.83.0/src/core/config/config_vars_non_generated.cc",
     "third_party/grpc-1.83.0/src/core/config/load_config.cc",
@@ -1162,10 +1166,14 @@ compat.protobuf   = { version = "35.1", tools = ["protoc"], reexport = true }
 # The gRPC C++ codegen plugin — a package of its own rather than a target
 # inside gRPC, because a code generator needs a .proto parser and a C++
 # emitter, not TLS, DNS and a regex engine.
-grpc.grpc-plugin  = { version = "1.83.0", tools = ["grpc_cpp_plugin"], reexport = true }
+grpc.grpc-plugin  = { path = "plugin", tools = ["grpc_cpp_plugin"], reexport = true }
 # The rule itself, as an importable host module. Not upstream code, so it
 # lives in mcpplibs rather than in the grpc namespace.
-mcpplibs.grpcgen  = { version = "1.83.0", host-module = true, reexport = true }
+# Host libraries use the current build-dependency contract. Re-exporting the
+# small rule package makes it available to a consumer build.mcpp; the expensive
+# protoc/plugin tools above remain conditional on codegen.
+[build-dependencies]
+"mcpplibs.grpcgen" = { path = "rules", host-module = true, reexport = true }
 
 [target.'cfg(windows)'.build]
 cxxflags = [
@@ -1189,3 +1197,22 @@ ldflags = ["-lpthread", "-ldl", "-lm"]
 [target.'cfg(macos)'.build]
 ldflags = ["-lresolv"]
 
+
+[package.metadata.mwrap]
+upstream-version = "1.83.0"
+
+[[runtime.deploy]]
+from = "LICENSE"
+to = "licenses/grpc"
+
+[[runtime.deploy]]
+from = "NOTICE"
+to = "licenses/grpc"
+
+[[runtime.deploy]]
+from = "upstream/grpc/README.md"
+to = "licenses/grpc/upstream/grpc"
+
+[[runtime.deploy]]
+from = "upstream/grpc/LICENSE"
+to = "licenses/grpc/upstream/grpc"
