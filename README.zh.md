@@ -50,7 +50,7 @@ import mcpplibs.mwrap.grpc;
 
 ## 平台支持
 
-Linux、macOS、Windows（x86_64）。TLS 来自 compat.openssl 3.5.9（自 1.83.0.1 起），即 `mcpplibs.mwrap.openssl` 封装的同一 OpenSSL，两者同用时只链接一份。
+Linux、macOS。TLS 来自 compat.openssl 3.5.9（自 1.83.0.1 起），即 `mcpplibs.mwrap.openssl` 封装的同一 OpenSSL，两者同用时只链接一份。Windows 上可以编译并链接，但运行时在启动时中止，暂不支持。
 
 ## 特性
 

@@ -50,7 +50,7 @@ Use `grpcgen::generate_all`, `plan_all` and `submit` for import paths, plugins a
 
 ## Platform support
 
-Linux, macOS and Windows (x86_64). TLS comes from compat.openssl 3.5.9 (since 1.83.0.1), the OpenSSL that `mcpplibs.mwrap.openssl` wraps, so a program using both links one OpenSSL.
+Linux and macOS. TLS comes from compat.openssl 3.5.9 (since 1.83.0.1), the OpenSSL that `mcpplibs.mwrap.openssl` wraps, so a program using both links one OpenSSL. On Windows the package builds and links, but the runtime aborts at startup; Windows is not supported yet.
 
 ## Features
 

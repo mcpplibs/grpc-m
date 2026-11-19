@@ -50,10 +50,8 @@ jobs:
         include:
           - { name: "linux x86_64",  os: ubuntu-latest, suffix: linux-x86_64,  ext: tar.gz, mcpp: bin/mcpp }
           - { name: "macos arm64",   os: macos-latest,  suffix: macosx-arm64,  ext: tar.gz, mcpp: bin/mcpp }
-          # compat.openssl builds on Windows (VC-WIN64A + nmake), so gRPC's
-          # secure build can resolve there; the [target.'cfg(windows)'] flags
-          # in mcpp.toml are upstream's MSVC set.
-          - { name: "windows x86_64", os: windows-2025, suffix: windows-x86_64, ext: zip, mcpp: bin/mcpp.exe }
+          # No windows leg yet: the package builds and links there, but the
+          # runtime aborts at startup (see the platforms comment in mcpp.toml).
     steps:
       - uses: actions/checkout@v4
 

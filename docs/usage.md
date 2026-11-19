@@ -177,11 +177,13 @@ Three properties this buys, none of which hand-managed codegen can offer:
 
 ## Platform support
 
-**linux, macOS and windows (x86_64).** gRPC's secure build cannot drop TLS, so this
-package's coverage is `compat.openssl`'s; that package builds on windows through
-VC-WIN64A + nmake, and the windows compile/link flags in `mcpp.toml` are upstream's
-MSVC set. Since 1.83.0.1 the OpenSSL is compat.openssl 3.5.9 (3.5 LTS), the same one
-`mcpplibs.mwrap.openssl` wraps, so a program that uses both links one OpenSSL.
+**linux and macOS.** gRPC's secure build cannot drop TLS, so this package's coverage
+starts from `compat.openssl`'s, which now includes windows (VC-WIN64A + nmake). On
+windows this package compiles and links (clang, MSVC ABI), but the runtime aborts at
+startup (exit 133, a breakpoint trap) before the first line of the module test, so
+windows is not claimed until that is diagnosed on a windows host. Since 1.83.0.1 the
+OpenSSL is compat.openssl 3.5.9 (3.5 LTS), the same one `mcpplibs.mwrap.openssl` wraps,
+so a program that uses both links one OpenSSL.
 
 ## Features
 
