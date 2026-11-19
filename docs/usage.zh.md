@@ -168,11 +168,10 @@ GENERATE protoc:orders (+grpc +mock, -Iproto -I../shared-proto)
 
 ## 平台支持
 
-**linux 与 macOS。** 这不是 gRPC 的限制:`compat.openssl` 目前没有 windows 条目
-(其描述符写着 "windows deferred —— 需要预编译的 MSVC 库"),因此在 windows 上依赖解析
-会直接失败 —— `E_NOT_FOUND: package 'compat:openssl@3.5.1' not found`,还没开始编译。
-gRPC 的 secure 构建无法去掉 TLS,所以本包的平台覆盖面就等于该依赖的覆盖面。
-windows 所需的编译/链接选项已经写在 `mcpp.toml` 里,等那个条目落地即可启用。
+**linux、macOS 与 windows（x86_64）。** gRPC 的 secure 构建无法去掉 TLS,本包的平台覆盖面
+等于 `compat.openssl` 的覆盖面;该包在 windows 上经 VC-WIN64A + nmake 构建,`mcpp.toml`
+中 windows 的编译/链接选项即上游的 MSVC 选项。自 1.83.0.1 起 OpenSSL 为 compat.openssl
+3.5.9（3.5 LTS）,与 `mcpplibs.mwrap.openssl` 封装的是同一份,两者同用时只链接一份 OpenSSL。
 
 ## Features
 

@@ -19,14 +19,14 @@
 ## 快速开始
 
 ```sh
-mcpp new greeter --template mcpplibs.mwrap.grpc@1.83.0
+mcpp new greeter --template mcpplibs.mwrap.grpc@1.83.0.1
 cd greeter
 mcpp run
 ```
 
 ```toml
 [dependencies]
-mcpplibs.mwrap.grpc = { version = "1.83.0", features = ["codegen"] }
+mcpplibs.mwrap.grpc = { version = "1.83.0.1", features = ["codegen"] }
 ```
 
 ## 两种使用方式
@@ -50,7 +50,7 @@ import mcpplibs.mwrap.grpc;
 
 ## 平台支持
 
-运行时支持 Linux/macOS；当前 OpenSSL 供应者未支持 Windows 运行时，宿主工具单独测试。
+Linux、macOS、Windows（x86_64）。TLS 来自 compat.openssl 3.5.9（自 1.83.0.1 起），即 `mcpplibs.mwrap.openssl` 封装的同一 OpenSSL，两者同用时只链接一份。
 
 ## 特性
 
