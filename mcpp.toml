@@ -1172,7 +1172,7 @@ grpc.grpc-plugin  = { path = "plugin", tools = ["grpc_cpp_plugin"], reexport = t
 # small rule package makes it available to a consumer build.mcpp; the expensive
 # protoc/plugin tools above remain conditional on codegen.
 [build-dependencies]
-"mcpplibs.grpcgen" = { path = "rules", host-module = true, reexport = true }
+mcpplibs.grpcgen = { path = "rules", host-module = true, reexport = true }
 
 [target.'cfg(windows)'.build]
 cxxflags = [

@@ -88,7 +88,8 @@ jobs:
       - name: Candidate index (mcpp-index#845)
         shell: bash
         run: |
-          home=$("$MCPP" self env | awk -F'= *' '/^MCPP_HOME/ {print $2; exit}')
+          # No early exit in awk: mcpp would take SIGPIPE, and pipefail report it.
+          home=$("$MCPP" self env | awk -F'= *' '/^MCPP_HOME/ && !h {h = $2} END {print h}')
           test -n "$home"
           git init -q "$RUNNER_TEMP/index"
           git -C "$RUNNER_TEMP/index" fetch -q --depth 1 https://github.com/mcpplibs/mcpp-index "$MCPP_INDEX_CANDIDATE"
