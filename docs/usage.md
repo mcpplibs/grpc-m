@@ -177,12 +177,13 @@ Three properties this buys, none of which hand-managed codegen can offer:
 
 ## Platform support
 
-**linux and macOS.** Not a gRPC limitation: `compat.openssl` has no windows entry yet
-("windows deferred — requires prebuilt MSVC libs"), so on windows dependency resolution
-fails with `E_NOT_FOUND: package 'compat:openssl@3.5.1' not found` before anything is
-compiled. gRPC's secure build cannot drop TLS, so this package's coverage is exactly
-that dependency's. The windows compile/link flags are already in `mcpp.toml`, ready for
-the day that entry lands.
+**linux and macOS.** gRPC's secure build cannot drop TLS, so this package's coverage
+starts from `compat.openssl`'s, which now includes windows (VC-WIN64A + nmake). On
+windows this package compiles and links (clang, MSVC ABI), but the runtime aborts at
+startup (exit 133, a breakpoint trap) before the first line of the module test, so
+windows is not claimed until that is diagnosed on a windows host. Since 1.83.0.1 the
+OpenSSL is compat.openssl 3.5.9 (3.5 LTS), the same one `mcpplibs.mwrap.openssl` wraps,
+so a program that uses both links one OpenSSL.
 
 ## Features
 
@@ -253,7 +254,7 @@ The module layer and build glue are Apache-2.0, matching vendored gRPC
 ## Current-client quickstart candidate
 
 The wrapper revision is `1.83.0.1`; the upstream C/C++ API and published module
-identity stay unchanged. Development tooling uses mcpp `2026.10.24.1`. Templates
+identity stay unchanged. Development tooling uses mcpp `2026.11.18.1`. Templates
 now write one qualified dependency from `self.name`, without repeating a namespace.
 
 ```sh

@@ -29,7 +29,12 @@ env:
   #               and `rerun_if_changed_glob`, without which generate_all()
   #               would not re-run when a .proto is ADDED (no declared file's
   #               hash changes), silently never generating it
-  MCPP_VERSION: "2026.10.24.1"
+  MCPP_VERSION: "2026.11.18.1"
+  # Until mcpp-index publishes compat.openssl 3.5.9 (mcpplibs/mcpp-index#845),
+  # this revision resolves against that PR's candidate commit: the complete,
+  # unchanged index layout becomes the built-in index of the run's home.
+  # Drop the pin (and the step that reads it) once the index has published it.
+  MCPP_INDEX_CANDIDATE: "7359195426993b43217bd07d02454e61c15abf31"
 
 jobs:
   build:
@@ -45,12 +50,8 @@ jobs:
         include:
           - { name: "linux x86_64",  os: ubuntu-latest, suffix: linux-x86_64,  ext: tar.gz, mcpp: bin/mcpp }
           - { name: "macos arm64",   os: macos-latest,  suffix: macosx-arm64,  ext: tar.gz, mcpp: bin/mcpp }
-          # No windows leg: compat.openssl has no windows xpm entry yet, so
-          # dependency resolution fails there before anything is compiled
-          # ("E_NOT_FOUND: package 'compat:openssl@3.5.1' not found"). gRPC's
-          # secure build cannot drop TLS, so this package is linux + macOS
-          # until that package gains windows support. Re-add this line then —
-          # the windows flags in mcpp.toml are already in place.
+          # No windows leg yet: the package builds and links there, but the
+          # runtime aborts at startup (see the platforms comment in mcpp.toml).
     steps:
       - uses: actions/checkout@v4
 
@@ -81,6 +82,17 @@ jobs:
           MCPP_INDEX_MIRROR: GLOBAL
         run: |
           "$MCPP" index update
+
+      - name: Candidate index (mcpp-index#845)
+        shell: bash
+        run: |
+          # No early exit in awk: mcpp would take SIGPIPE, and pipefail report it.
+          home=$("$MCPP" self env | awk -F'= *' '/^MCPP_HOME/ && !h {h = $2} END {print h}')
+          test -n "$home"
+          git init -q "$RUNNER_TEMP/index"
+          git -C "$RUNNER_TEMP/index" fetch -q --depth 1 https://github.com/mcpplibs/mcpp-index "$MCPP_INDEX_CANDIDATE"
+          git -C "$RUNNER_TEMP/index" checkout -q FETCH_HEAD
+          python3 "$RUNNER_TEMP/index/tests/prepare_builtin_index.py" --home "$home"
 
       # The pinned client includes the object-layout cache fix (2026.8.3.4).
       # Reuse SDK objects between actual consumers; every example still builds
@@ -151,6 +163,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       # The plugin generates code that calls gRPC internals, so a plugin built
       # from a different release than the runtime being linked is exactly the
       # mismatch this whole design exists to make impossible. The rule package
@@ -167,10 +181,21 @@ jobs:
           plugin = tomllib.loads(Path("plugin/mcpp.toml").read_text())["package"]
           rule = tomllib.loads(Path("rules/mcpp.toml").read_text())["package"]
           upstream = runtime["metadata"]["mwrap"]["upstream-version"]
-          assert runtime["version"] == upstream == "1.83.0"
+          # The runtime carries its own wrapper revisions (1.83.0.1: compat.openssl
+          # 3.5.9). The host tools stay 1.83.0.1, the entries the index already
+          # serves from the mwrap-1.83.0 archive, so their directories must not
+          # change: the step below proves it.
+          assert upstream == "1.83.0"
+          assert runtime["version"] in (upstream, upstream + ".1"), runtime["version"]
           assert plugin["version"] == rule["version"] == upstream + ".1"
           print("runtime", runtime["version"], "host tools", plugin["version"], "same pinned source")
           PYVERS
+
+      - name: host tools unchanged since the archive the index serves them from
+        shell: bash
+        run: |
+          git diff --exit-code mwrap-1.83.0 -- plugin rules
+          echo "plugin/ and rules/ are byte-identical to mwrap-1.83.0"
 
       # rules/mcpp.toml states that the package name and the module name are
       # kept EQUAL, and that this is what makes the package work on every

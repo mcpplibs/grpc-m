@@ -48,7 +48,9 @@ def main():
         project = temporary / "quickstart"
         manifest = project / "mcpp.toml"
         text = manifest.read_text()
-        dependency = tomllib.loads(text)["dependencies"][identity]
+        dependency = tomllib.loads(text)["dependencies"]
+        for part in identity.split("."):
+            dependency = dependency[part]
         options = {"version": dependency} if isinstance(dependency, str) else dependency
         assert options["version"] == version, options
         replacement = '{ path = ' + json.dumps(package.as_posix())
@@ -56,9 +58,10 @@ def main():
             replacement += ', features = ' + json.dumps(options["features"])
         replacement += ' }'
         lines = text.splitlines()
-        matches = [i for i, line in enumerate(lines) if line.startswith(json.dumps(identity) + " =")]
+        # The selector as one dotted key, unquoted (mcpp 2026.11.8.1 and later read a quoted one as deprecated).
+        matches = [i for i, line in enumerate(lines) if line.startswith(identity + " =")]
         assert len(matches) == 1, "Expected exactly one qualified dependency from self.name"
-        lines[matches[0]] = json.dumps(identity) + " = " + replacement
+        lines[matches[0]] = identity + " = " + replacement
         manifest.write_text("\n".join(lines) + "\n")
         if args.index:
             candidate_index = args.index.resolve()

@@ -19,14 +19,14 @@
 ## Quick Start
 
 ```sh
-mcpp new greeter --template mcpplibs.mwrap.grpc@1.83.0
+mcpp new greeter --template mcpplibs.mwrap.grpc@1.83.0.1
 cd greeter
 mcpp run
 ```
 
 ```toml
 [dependencies]
-mcpplibs.mwrap.grpc = { version = "1.83.0", features = ["codegen"] }
+mcpplibs.mwrap.grpc = { version = "1.83.0.1", features = ["codegen"] }
 ```
 
 ## Two ways to use it
@@ -50,7 +50,7 @@ Use `grpcgen::generate_all`, `plan_all` and `submit` for import paths, plugins a
 
 ## Platform support
 
-Runtime: Linux/macOS. Windows runtime is unavailable through the current OpenSSL provider; host tools are tested separately.
+Linux and macOS. TLS comes from compat.openssl 3.5.9 (since 1.83.0.1), the OpenSSL that `mcpplibs.mwrap.openssl` wraps, so a program using both links one OpenSSL. On Windows the package builds and links, but the runtime aborts at startup; Windows is not supported yet.
 
 ## Features
 
