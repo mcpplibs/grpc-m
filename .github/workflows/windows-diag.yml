@@ -66,10 +66,10 @@ jobs:
             true
           }
           variant '' A
-          variant ', "-Wl,/opt:noicf"' B
-          variant ', "-g", "-Wl,/opt:icf"' C
-          echo "module=$(cygpath -w "$PWD/module-C.exe")" >> "$GITHUB_ENV"
+          variant ', "-Wl,/opt:noref"' D
+          variant ', "-g", "-Wl,/opt:ref"' E
           echo "startup=$(cygpath -w "$PWD/module-A.exe")" >> "$GITHUB_ENV"
+          echo "module=$(cygpath -w "$PWD/module-E.exe")" >> "$GITHUB_ENV"
 
       - uses: actions/cache/save@v4
         if: always()
@@ -78,26 +78,6 @@ jobs:
             mcpp-2026.11.18.1-windows-x86_64
             target
           key: win-diag-${{ github.run_id }}-${{ github.run_attempt }}
-
-      - name: Locate the test programs and tools
-        if: always()
-        shell: bash
-        run: |
-          set +e
-          find target -iname '*.exe' -path '*test*' -printf '%s %p\n' 2>/dev/null | sort -k2 | tail -40 || true
-          find target -iname '*.pdb' -printf '%s %p\n' | tail -20 || true
-          find "$MCPP_ROOT" -iname 'lldb.exe' -o -iname 'llvm-readobj.exe' -o -iname 'llvm-symbolizer.exe' | head
-          ls "/c/Program Files (x86)/Windows Kits/10/Debuggers/x64/cdb.exe" || echo "no cdb"
-          for t in startup module; do
-            exe=$(find target -iname "$t.exe" | head -1)
-            echo "$t=$(cygpath -w "$exe")" >> "$GITHUB_ENV"
-          done
-          # How the test programs were compiled and linked.
-          for nj in $(find target -name build.ninja); do
-            grep -n -E 'module\.exe|startup\.exe' "$nj" | head -5 && echo "^^ $nj"
-          done
-          nj=$(grep -l 'module\.exe' $(find target -name build.ninja) | head -1)
-          [ -n "$nj" ] && grep -n -E '^ *(cxxflags|ldflags|command|link_flags) *=' "$nj" | cut -c1-1500 | head -30 || true
 
       - name: Run directly (raw exit status)
         if: always()
@@ -123,9 +103,8 @@ jobs:
           foreach ($name in 'startup', 'module') {
             $exe = (Get-Item "env:$name").Value
             $dir = Split-Path $exe
-            if (Test-Path "$dir\module-C.pdb") { Copy-Item "$dir\module-C.pdb" "$dir\module.pdb" -Force }
             Write-Host "== $name under cdb"
-            & $cdb -lines -G -y "$dir" -c ".symopt+0x40; g; .echo ===EXR===; .exr -1; .echo ===STACK===; kn 100; .echo ===REGS===; r; .echo ===CODE===; ub @rip L12; u @rip L4; q" $exe 2>&1 | Out-Host
+            & $cdb -lines -G -y "$dir" -c ".symopt+0x40; .sympath+ D:\a\grpc-m\grpc-m; g; .echo ===EXR===; .exr -1; .echo ===STACK===; kn 100; .echo ===REGS===; r; .echo ===CODE===; ub @rip L12; u @rip L4; q" $exe 2>&1 | Out-Host
           }
           exit 0
 
