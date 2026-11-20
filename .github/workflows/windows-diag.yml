@@ -44,16 +44,32 @@ jobs:
           echo "MCPP_ROOT=$(cygpath -m "$root")" >> "$GITHUB_ENV"
           "$root/bin/mcpp.exe" index update
 
-      - name: mcpp test
-        id: test
-        continue-on-error: true
+      - name: Link-flag variants (relink only)
         shell: bash
         run: |
+          set +e
           "$MCPP" --version
-          "$MCPP" test
-        env:
-          GRPC_VERBOSITY: DEBUG
-          GRPC_TRACE: api
+          variant() {
+            python3 - "$1" <<'PY'
+          import pathlib, re, sys
+          p = pathlib.Path("mcpp.toml"); s = p.read_text()
+          s = re.sub(r'ldflags = \["-lws2_32", "-lcrypt32", "-liphlpapi"[^\]]*\].*',
+                     'ldflags = ["-lws2_32", "-lcrypt32", "-liphlpapi"' + sys.argv[1] + ']', s, count=1)
+          p.write_text(s)
+          PY
+            grep -n 'ldflags = \["-lws2_32' mcpp.toml
+            "$MCPP" test > "variant-$2.log" 2>&1
+            echo "VARIANT $2 ($1): mcpp test rc=$?"
+            grep -E '^(module|startup|macros) \.\.\.|test result' "variant-$2.log"
+            cp target/x86_64-windows-msvc/*/bin/module.exe "module-$2.exe" 2>/dev/null
+            cp target/x86_64-windows-msvc/*/bin/module.pdb "module-$2.pdb" 2>/dev/null
+            true
+          }
+          variant '' A
+          variant ', "-Wl,/opt:noicf"' B
+          variant ', "-g", "-Wl,/opt:icf"' C
+          echo "module=$(cygpath -w "$PWD/module-C.exe")" >> "$GITHUB_ENV"
+          echo "startup=$(cygpath -w "$PWD/module-A.exe")" >> "$GITHUB_ENV"
 
       - uses: actions/cache/save@v4
         if: always()
@@ -107,6 +123,7 @@ jobs:
           foreach ($name in 'startup', 'module') {
             $exe = (Get-Item "env:$name").Value
             $dir = Split-Path $exe
+            if (Test-Path "$dir\module-C.pdb") { Copy-Item "$dir\module-C.pdb" "$dir\module.pdb" -Force }
             Write-Host "== $name under cdb"
             & $cdb -lines -G -y "$dir" -c ".symopt+0x40; g; .echo ===EXR===; .exr -1; .echo ===STACK===; kn 100; .echo ===REGS===; r; .echo ===CODE===; ub @rip L12; u @rip L4; q" $exe 2>&1 | Out-Host
           }
@@ -124,8 +141,7 @@ jobs:
         with:
           name: windows-test-programs
           path: |
-            target/**/startup.exe
-            target/**/module.exe
-            target/**/*.pdb
+            module-*.exe
+            variant-*.log
           if-no-files-found: warn
           retention-days: 5
