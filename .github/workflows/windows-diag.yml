@@ -1,0 +1,116 @@
+name: Windows startup diagnosis (temporary)
+
+# TEMPORARY, draft PR only: why does the module test end with "exit 133" on
+# Windows? Builds the tests, then runs each test program directly (raw exit
+# status), under cdb (stack at the exception) and keeps the programs.
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: windows-diag-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MCPP_VERSION: "2026.11.18.1"
+  MCPP_INDEX_MIRROR: GLOBAL
+
+jobs:
+  diag:
+    runs-on: windows-2025
+    timeout-minutes: 210
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            mcpp-2026.11.18.1-windows-x86_64
+            target
+          key: win-diag-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: win-diag-
+
+      - name: mcpp
+        shell: bash
+        run: |
+          root="$PWD/mcpp-${MCPP_VERSION}-windows-x86_64"
+          if [ ! -f "$root/bin/mcpp.exe" ]; then
+            archive="mcpp-${MCPP_VERSION}-windows-x86_64.zip"
+            curl -L -fsS -o "$archive" "https://github.com/mcpp-community/mcpp/releases/download/v${MCPP_VERSION}/$archive"
+            unzip -q "$archive"
+          fi
+          echo "MCPP=$(cygpath -m "$root/bin/mcpp.exe")" >> "$GITHUB_ENV"
+          echo "MCPP_VENDORED_XLINGS=$(cygpath -m "$root/registry/bin/xlings")" >> "$GITHUB_ENV"
+          echo "MCPP_ROOT=$(cygpath -m "$root")" >> "$GITHUB_ENV"
+          "$root/bin/mcpp.exe" index update
+
+      - name: mcpp test
+        id: test
+        continue-on-error: true
+        shell: bash
+        run: |
+          "$MCPP" --version
+          "$MCPP" test
+
+      - name: Locate the test programs and tools
+        shell: bash
+        run: |
+          find target -iname '*.exe' -path '*test*' -printf '%s %p\n' 2>/dev/null | sort -k2 | tail -40 || true
+          find target -iname '*.pdb' -printf '%s %p\n' | tail -20 || true
+          find "$MCPP_ROOT" -iname 'lldb.exe' -o -iname 'llvm-readobj.exe' -o -iname 'llvm-symbolizer.exe' | head
+          ls "/c/Program Files (x86)/Windows Kits/10/Debuggers/x64/cdb.exe" || echo "no cdb"
+          for t in startup module; do
+            exe=$(find target -iname "$t.exe" | head -1)
+            echo "$t=$(cygpath -w "$exe")" >> "$GITHUB_ENV"
+          done
+          # How the test programs were compiled and linked.
+          for nj in $(find target -name build.ninja); do
+            grep -n -E 'module\.exe|startup\.exe' "$nj" | head -5 && echo "^^ $nj"
+          done
+          nj=$(grep -l 'module\.exe' $(find target -name build.ninja) | head -1)
+          [ -n "$nj" ] && grep -n -E '^ *(cxxflags|ldflags|command|link_flags) *=' "$nj" | cut -c1-1500 | head -30 || true
+
+      - name: Run directly (raw exit status)
+        shell: pwsh
+        env:
+          GRPC_VERBOSITY: DEBUG
+          GRPC_TRACE: api
+        run: |
+          foreach ($name in 'startup', 'module') {
+            $exe = (Get-Item "env:$name").Value
+            Write-Host "== $name : $exe"
+            & $exe 2>&1 | Out-Host
+            "{0}: exit 0x{1:X8} ({1})" -f $name, $LASTEXITCODE | Out-Host
+          }
+          exit 0
+
+      - name: Under cdb
+        shell: pwsh
+        run: |
+          $cdb = "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe"
+          if (-not (Test-Path $cdb)) { Write-Host "no cdb"; exit 0 }
+          foreach ($name in 'startup', 'module') {
+            $exe = (Get-Item "env:$name").Value
+            $dir = Split-Path $exe
+            Write-Host "== $name under cdb"
+            & $cdb -lines -G -y "$dir" -c ".symopt+0x40; g; .echo ===EXR===; .exr -1; .echo ===STACK===; kn 100; .echo ===REGS===; r; .echo ===CODE===; ub @rip L12; u @rip L4; q" $exe 2>&1 | Out-Host
+          }
+          exit 0
+
+      - name: Debug directory of the program
+        if: always()
+        shell: bash
+        run: |
+          ro=$(find "$MCPP_ROOT" -iname 'llvm-readobj.exe' | head -1)
+          [ -n "$ro" ] && "$ro" --coff-debug-directory "$module" | head -30 || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-test-programs
+          path: |
+            target/**/startup.exe
+            target/**/module.exe
+            target/**/*.pdb
+          if-no-files-found: warn
+          retention-days: 5
