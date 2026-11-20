@@ -65,9 +65,14 @@ jobs:
             cp target/x86_64-windows-msvc/*/bin/module.pdb "module-$2.pdb" 2>/dev/null
             true
           }
-          variant '' A
-          variant ', "-Wl,/opt:noref"' D
           variant ', "-g", "-Wl,/opt:ref"' E
+          variant ', "-g", "-Wl,/opt:noref"' F
+          # E linked last-but-one; relink it so its PDB is the one beside the target exe.
+          variant ', "-g", "-Wl,/opt:ref"' E
+          # The symbols of the absl weak functions as linked, and their callers' targets.
+          ro=$(find "$MCPP_ROOT" -iname 'llvm-pdbutil.exe' | head -1); echo "pdbutil: $ro"
+          pdb=$(ls target/x86_64-windows-msvc/*/bin/module.pdb | head -1)
+          [ -n "$ro" ] && "$ro" dump -publics "$pdb" | grep -i -E -B1 -A3 'AbslInternal' | head -120
           echo "startup=$(cygpath -w "$PWD/module-A.exe")" >> "$GITHUB_ENV"
           echo "module=$(cygpath -w "$PWD/module-E.exe")" >> "$GITHUB_ENV"
 
@@ -103,8 +108,11 @@ jobs:
           foreach ($name in 'startup', 'module') {
             $exe = (Get-Item "env:$name").Value
             $dir = Split-Path $exe
+            if ($name -eq 'startup') { continue }
+            $exe = (Resolve-Path "target\x86_64-windows-msvc\*\bin\module.exe").Path
+            $dir = Split-Path $exe
             Write-Host "== $name under cdb"
-            & $cdb -lines -G -y "$dir" -c ".symopt+0x40; .sympath+ D:\a\grpc-m\grpc-m; g; .echo ===EXR===; .exr -1; .echo ===STACK===; kn 100; .echo ===REGS===; r; .echo ===CODE===; ub @rip L12; u @rip L4; q" $exe 2>&1 | Out-Host
+            & $cdb -lines -G -y "$dir" -c ".symopt+0x40; g; .echo ===EXR===; .exr -1; .echo ===STACK===; kn 100; .echo ===REGS===; r; .echo ===CODE===; ub @rip L12; u @rip L4; .echo ===FRAMES===; .frame /c 0; .frame /c 1; .frame /c 2; .frame /c 3; q" $exe 2>&1 | Out-Host
           }
           exit 0
 
