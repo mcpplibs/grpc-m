@@ -50,7 +50,10 @@ int main() {
     //    connect lazily, so no server is needed; IDLE is the correct state
     //    before the first RPC, and getting it means the channel is a live
     //    object from the library rather than a null placeholder.
-    auto channel = grpc::CreateChannel("127.0.0.1:1", grpc::InsecureChannelCredentials());
+    auto insecure = grpc::InsecureChannelCredentials();
+    std::fputs("diag: step 3b (credentials made)\n", stderr);
+    auto channel = grpc::CreateChannel("127.0.0.1:1", insecure);
+    std::fputs("diag: step 3c (channel made)\n", stderr);
     if (!channel) {
         std::puts("FAIL: CreateChannel() returned null");
         return 1;

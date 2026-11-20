@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         with:
           path: |
             mcpp-2026.11.18.1-windows-x86_64
@@ -51,10 +51,23 @@ jobs:
         run: |
           "$MCPP" --version
           "$MCPP" test
+        env:
+          GRPC_VERBOSITY: DEBUG
+          GRPC_TRACE: api
+
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: |
+            mcpp-2026.11.18.1-windows-x86_64
+            target
+          key: win-diag-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Locate the test programs and tools
+        if: always()
         shell: bash
         run: |
+          set +e
           find target -iname '*.exe' -path '*test*' -printf '%s %p\n' 2>/dev/null | sort -k2 | tail -40 || true
           find target -iname '*.pdb' -printf '%s %p\n' | tail -20 || true
           find "$MCPP_ROOT" -iname 'lldb.exe' -o -iname 'llvm-readobj.exe' -o -iname 'llvm-symbolizer.exe' | head
@@ -71,6 +84,7 @@ jobs:
           [ -n "$nj" ] && grep -n -E '^ *(cxxflags|ldflags|command|link_flags) *=' "$nj" | cut -c1-1500 | head -30 || true
 
       - name: Run directly (raw exit status)
+        if: always()
         shell: pwsh
         env:
           GRPC_VERBOSITY: DEBUG
@@ -85,6 +99,7 @@ jobs:
           exit 0
 
       - name: Under cdb
+        if: always()
         shell: pwsh
         run: |
           $cdb = "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe"
