@@ -19,7 +19,7 @@ repo        = "https://github.com/mcpplibs/grpc-m"
 # 1.83.0.1 (wrapper revision): compat.openssl 3.5.9 (3.5 LTS) instead of 3.5.1,
 # the same OpenSSL as mcpplibs.mwrap.openssl 3.5.9, so a program that uses
 # both links one OpenSSL. The gRPC source, modules and API are unchanged.
-platforms   = ["linux", "macos"]
+platforms   = ["linux", "macos", "windows"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Single-repo build, the shape opencv-m established.

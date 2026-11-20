@@ -1,0 +1,79 @@
+name: Windows startup diagnosis (temporary)
+
+# TEMPORARY, draft PR only: why does the module test end with "exit 133" on
+# Windows? Builds the tests, then runs each test program directly (raw exit
+# status), under cdb (stack at the exception) and keeps the programs.
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: windows-diag-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MCPP_VERSION: "2026.11.18.1"
+  MCPP_INDEX_MIRROR: GLOBAL
+  MCPP_TOOL_BUILD_VERBOSE: "1"
+
+jobs:
+  diag:
+    runs-on: windows-2025
+    timeout-minutes: 210
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            mcpp-2026.11.18.1-windows-x86_64
+            target
+          key: win-diag-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: win-diag-
+
+      - name: mcpp
+        shell: bash
+        run: |
+          root="$PWD/mcpp-${MCPP_VERSION}-windows-x86_64"
+          if [ ! -f "$root/bin/mcpp.exe" ]; then
+            archive="mcpp-${MCPP_VERSION}-windows-x86_64.zip"
+            curl -L -fsS -o "$archive" "https://github.com/mcpp-community/mcpp/releases/download/v${MCPP_VERSION}/$archive"
+            unzip -q "$archive"
+          fi
+          echo "MCPP=$(cygpath -m "$root/bin/mcpp.exe")" >> "$GITHUB_ENV"
+          echo "MCPP_VENDORED_XLINGS=$(cygpath -m "$root/registry/bin/xlings")" >> "$GITHUB_ENV"
+          echo "MCPP_ROOT=$(cygpath -m "$root")" >> "$GITHUB_ENV"
+          "$root/bin/mcpp.exe" index update
+
+      - name: Candidate index (c-ares CARES_STATICLIB; protobuf keeps protoc on Windows)
+        shell: bash
+        run: |
+          home=$("$MCPP" self env | awk -F'= *' '/^MCPP_HOME/ && !h {h = $2} END {print h}')
+          test -n "$home"
+          git init -q "$RUNNER_TEMP/index"
+          git -C "$RUNNER_TEMP/index" fetch -q --depth 1 https://github.com/mcpplibs/mcpp-index 68b50f09e46bb1cfd0a58ee19fbe2d4f49072d65
+          git -C "$RUNNER_TEMP/index" checkout -q FETCH_HEAD
+          python3 "$RUNNER_TEMP/index/tests/prepare_builtin_index.py" --home "$home"
+
+      - name: protoc host tool on Windows (helloworld), full inner output to a file
+        id: protoc
+        continue-on-error: true
+        shell: bash
+        working-directory: examples/helloworld
+        run: |
+          set +e
+          "$MCPP" run > "$RUNNER_TEMP/helloworld.log" 2>&1
+          rc=$?
+          echo "mcpp run exit $rc; $(wc -l < "$RUNNER_TEMP/helloworld.log") lines"
+          grep -n -E "FAILED|ninja: build stopped|: error|error:|lld-link|undefined symbol|fatal|cannot " "$RUNNER_TEMP/helloworld.log" | grep -v -i "warning" | head -80
+          echo "---- last 60 lines"
+          tail -60 "$RUNNER_TEMP/helloworld.log" | cut -c1-400
+          exit $rc
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: protoc-windows-log
+          path: ${{ runner.temp }}/helloworld.log
+          if-no-files-found: warn
+          retention-days: 5
