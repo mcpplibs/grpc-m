@@ -44,37 +44,23 @@ jobs:
           echo "MCPP_ROOT=$(cygpath -m "$root")" >> "$GITHUB_ENV"
           "$root/bin/mcpp.exe" index update
 
-      - name: Link-flag variants (relink only)
+      - name: Candidate index (compat.c-ares exports CARES_STATICLIB)
         shell: bash
         run: |
-          set +e
+          home=$("$MCPP" self env | awk -F'= *' '/^MCPP_HOME/ && !h {h = $2} END {print h}')
+          test -n "$home"
+          git init -q "$RUNNER_TEMP/index"
+          git -C "$RUNNER_TEMP/index" fetch -q --depth 1 https://github.com/mcpplibs/mcpp-index d8bd66298c41b1466f96cb6954fac227556b1045
+          git -C "$RUNNER_TEMP/index" checkout -q FETCH_HEAD
+          python3 "$RUNNER_TEMP/index/tests/prepare_builtin_index.py" --home "$home"
+
+      - name: Build the library and run the module test (default link flags)
+        id: test
+        continue-on-error: true
+        shell: bash
+        run: |
           "$MCPP" --version
-          variant() {
-            python3 - "$1" <<'PY'
-          import pathlib, re, sys
-          p = pathlib.Path("mcpp.toml"); s = p.read_text()
-          s = re.sub(r'ldflags = \["-lws2_32", "-lcrypt32", "-liphlpapi"[^\]]*\].*',
-                     'ldflags = ["-lws2_32", "-lcrypt32", "-liphlpapi"' + sys.argv[1] + ']', s, count=1)
-          p.write_text(s)
-          PY
-            grep -n 'ldflags = \["-lws2_32' mcpp.toml
-            "$MCPP" test > "variant-$2.log" 2>&1
-            echo "VARIANT $2 ($1): mcpp test rc=$?"
-            grep -E '^(module|startup|macros) \.\.\.|test result' "variant-$2.log"
-            cp target/x86_64-windows-msvc/*/bin/module.exe "module-$2.exe" 2>/dev/null
-            cp target/x86_64-windows-msvc/*/bin/module.pdb "module-$2.pdb" 2>/dev/null
-            true
-          }
-          variant ', "-g", "-Wl,/opt:ref"' E
-          variant ', "-g", "-Wl,/opt:noref"' F
-          # E linked last-but-one; relink it so its PDB is the one beside the target exe.
-          variant ', "-g", "-Wl,/opt:ref"' E
-          # The symbols of the absl weak functions as linked, and their callers' targets.
-          ro=$(find "$MCPP_ROOT" -iname 'llvm-pdbutil.exe' | head -1); echo "pdbutil: $ro"
-          pdb=$(ls target/x86_64-windows-msvc/*/bin/module.pdb | head -1)
-          [ -n "$ro" ] && "$ro" dump -publics "$pdb" | grep -i -E -B1 -A3 'AbslInternal' | head -120
-          echo "startup=$(cygpath -w "$PWD/module-A.exe")" >> "$GITHUB_ENV"
-          echo "module=$(cygpath -w "$PWD/module-E.exe")" >> "$GITHUB_ENV"
+          "$MCPP" test
 
       - uses: actions/cache/save@v4
         if: always()
@@ -84,51 +70,33 @@ jobs:
             target
           key: win-diag-${{ github.run_id }}-${{ github.run_attempt }}
 
-      - name: Run directly (raw exit status)
-        if: always()
-        shell: pwsh
-        env:
-          GRPC_VERBOSITY: DEBUG
-          GRPC_TRACE: api
-        run: |
-          foreach ($name in 'startup', 'module') {
-            $exe = (Get-Item "env:$name").Value
-            Write-Host "== $name : $exe"
-            & $exe 2>&1 | Out-Host
-            "{0}: exit 0x{1:X8} ({1})" -f $name, $LASTEXITCODE | Out-Host
-          }
-          exit 0
-
-      - name: Under cdb
-        if: always()
-        shell: pwsh
-        run: |
-          $cdb = "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe"
-          if (-not (Test-Path $cdb)) { Write-Host "no cdb"; exit 0 }
-          foreach ($name in 'startup', 'module') {
-            $exe = (Get-Item "env:$name").Value
-            $dir = Split-Path $exe
-            if ($name -eq 'startup') { continue }
-            $exe = (Resolve-Path "target\x86_64-windows-msvc\*\bin\module.exe").Path
-            $dir = Split-Path $exe
-            Write-Host "== $name under cdb"
-            & $cdb -lines -G -y "$dir" -c ".symopt+0x40; g; .echo ===EXR===; .exr -1; .echo ===STACK===; kn 100; .echo ===REGS===; r; .echo ===CODE===; ub @rip L12; u @rip L4; .echo ===FRAMES===; .frame /c 0; .frame /c 1; .frame /c 2; .frame /c 3; q" $exe 2>&1 | Out-Host
-          }
-          exit 0
-
-      - name: Debug directory of the program
+      - name: helloworld example — a real RPC over loopback
         if: always()
         shell: bash
-        run: |
-          ro=$(find "$MCPP_ROOT" -iname 'llvm-readobj.exe' | head -1)
-          [ -n "$ro" ] && "$ro" --coff-debug-directory "$module" | head -30 || true
+        working-directory: examples/helloworld
+        run: '"$MCPP" run'
+
+      - name: greeter example — the template, via the rule package
+        if: always()
+        shell: bash
+        working-directory: examples/greeter
+        run: '"$MCPP" run'
+
+      - name: advanced example — extra_dirs + mock + plan/submit
+        if: always()
+        shell: bash
+        working-directory: examples/advanced
+        run: '"$MCPP" run'
+
+      - name: The module test passed
+        shell: bash
+        run: test "${{ steps.test.outcome }}" = success
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: windows-test-programs
           path: |
-            module-*.exe
-            variant-*.log
+            target/**/bin/module.exe
           if-no-files-found: warn
           retention-days: 5

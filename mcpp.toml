@@ -1191,7 +1191,7 @@ cxxflags = [
     "-DNOMINMAX",
 ]
 cflags = ["-D_WIN32_WINNT=0x600", "-DNOMINMAX"]
-ldflags = ["-lws2_32", "-lcrypt32", "-liphlpapi", "-g"]  # DIAG: a PDB for cdb
+ldflags = ["-lws2_32", "-lcrypt32", "-liphlpapi"]
 
 [target.'cfg(linux)'.build]
 ldflags = ["-lpthread", "-ldl", "-lm"]

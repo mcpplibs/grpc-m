@@ -22,8 +22,6 @@
 import mcpplibs.mwrap.grpc;
 
 int main() {
-    std::setvbuf(stdout, nullptr, _IONBF, 0);
-    std::fputs("diag: main entered\n", stderr);
     // 1. A version string read from the library, not a header constant.
     const std::string version = grpc::Version();
     std::printf("grpc::Version() = %s\n", version.c_str());
@@ -32,7 +30,6 @@ int main() {
         return 1;
     }
 
-    std::fputs("diag: step 2\n", stderr);
     // 2. grpc::Status, including the error path — an all-OK stub cannot pass.
     const grpc::Status bad(grpc::StatusCode::INVALID_ARGUMENT, "nope");
     if (bad.ok() || bad.error_code() != grpc::StatusCode::INVALID_ARGUMENT ||
@@ -45,15 +42,11 @@ int main() {
         return 1;
     }
 
-    std::fputs("diag: step 3\n", stderr);
     // 3. A real channel object over a real (unconnected) target. Channels
     //    connect lazily, so no server is needed; IDLE is the correct state
     //    before the first RPC, and getting it means the channel is a live
     //    object from the library rather than a null placeholder.
-    auto insecure = grpc::InsecureChannelCredentials();
-    std::fputs("diag: step 3b (credentials made)\n", stderr);
-    auto channel = grpc::CreateChannel("127.0.0.1:1", insecure);
-    std::fputs("diag: step 3c (channel made)\n", stderr);
+    auto channel = grpc::CreateChannel("127.0.0.1:1", grpc::InsecureChannelCredentials());
     if (!channel) {
         std::puts("FAIL: CreateChannel() returned null");
         return 1;
@@ -64,7 +57,6 @@ int main() {
         return 1;
     }
 
-    std::fputs("diag: step 4\n", stderr);
     // 4. Channel arguments and a resource quota — plain library objects, but
     //    they prove those symbols link too.
     grpc::ChannelArguments args;
@@ -74,7 +66,6 @@ int main() {
     grpc::ResourceQuota quota("grpc-m-test");
     quota.Resize(1024 * 1024);
 
-    std::fputs("diag: step 5\n", stderr);
     // 5. Credentials factories, both sides.
     if (!grpc::InsecureChannelCredentials() || !grpc::InsecureServerCredentials()) {
         std::puts("FAIL: credentials factory returned null");
